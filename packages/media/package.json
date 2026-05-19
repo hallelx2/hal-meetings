@@ -1,0 +1,31 @@
+{
+  "name": "@hal/media",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pluggable speech-to-text, large language model, and text-to-speech adapters for Hal. One interface per modality; swap providers via env config without touching call sites.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./stt": "./src/stt/index.ts",
+    "./llm": "./src/llm/index.ts",
+    "./tts": "./src/tts/index.ts",
+    "./transcript": "./src/transcript.ts",
+    "./summarize": "./src/summarize.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.6.3"
+  }
+}
