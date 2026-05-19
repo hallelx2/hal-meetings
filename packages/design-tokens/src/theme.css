@@ -1,0 +1,47 @@
+/* Tailwind v4 @theme block. Import once in the app's global stylesheet. */
+@theme {
+  /* Colors */
+  --color-canvas-white: #ffffff;
+  --color-cloud-mist: #e0e0db;
+  --color-slate-text: #353241;
+  --color-rich-violet: #21164c;
+  --color-action-violet: #592eff;
+  --color-air-blue: #bcf2ff;
+  --color-lush-green: #dfff9d;
+  --color-sunset-pink: #ffaae6;
+  --color-neon-pink: #f843c2;
+  --color-aqua-blue: #2ed6ff;
+  --color-electric-green: #a2ea13;
+  --color-soft-gray-fill: #eeeeee;
+
+  /* Font families */
+  --font-display: 'PolySans', 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* Type scale — exposes Tailwind text-* utilities */
+  --text-caption: 14px;
+  --text-caption--line-height: 1.1;
+  --text-body-sm: 16px;
+  --text-body-sm--line-height: 1.1;
+  --text-body: 18px;
+  --text-body--line-height: 1.1;
+  --text-body-lg: 20px;
+  --text-body-lg--line-height: 1.1;
+  --text-heading-sm: 32px;
+  --text-heading-sm--line-height: 1.1;
+  --text-display-sm: 38px;
+  --text-display-sm--line-height: 1.1;
+  --text-display-md: 58px;
+  --text-display-md--line-height: 1.1;
+  --text-display-lg: 68px;
+  --text-display-lg--line-height: 1.05;
+
+  /* Letter spacing */
+  --tracking-adora: -0.02em;
+
+  /* Border radius — semantic */
+  --radius-cards: 26px;
+  --radius-badges: 200px;
+  --radius-buttons: 12px;
+  --radius-accent-card: 64px;
+}
