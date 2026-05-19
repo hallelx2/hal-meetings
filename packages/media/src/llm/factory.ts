@@ -1,9 +1,10 @@
 import type { LlmProvider } from './types';
 import { OllamaLlm } from './ollama';
 import { AnthropicLlm } from './anthropic';
+import { GeminiLlm } from './gemini';
 import { ProviderNotConfiguredError } from '../errors';
 
-export type LlmProviderName = 'ollama' | 'anthropic';
+export type LlmProviderName = 'ollama' | 'anthropic' | 'gemini';
 
 export interface LlmFactoryEnv {
   LLM_PROVIDER?: string;
@@ -13,6 +14,9 @@ export interface LlmFactoryEnv {
   // anthropic
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL?: string;
+  // gemini
+  GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
 }
 
 export function createLlmFromEnv(env: LlmFactoryEnv = process.env as LlmFactoryEnv): LlmProvider {
@@ -30,6 +34,13 @@ export function createLlmFromEnv(env: LlmFactoryEnv = process.env as LlmFactoryE
       const model = env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6';
       if (!apiKey) throw new ProviderNotConfiguredError('anthropic', 'ANTHROPIC_API_KEY env var');
       return new AnthropicLlm({ apiKey, model });
+    }
+
+    case 'gemini': {
+      const apiKey = env.GEMINI_API_KEY;
+      const model = env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+      if (!apiKey) throw new ProviderNotConfiguredError('gemini', 'GEMINI_API_KEY env var');
+      return new GeminiLlm({ apiKey, model });
     }
 
     default:
