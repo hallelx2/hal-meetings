@@ -1,8 +1,10 @@
 import { SiteNav } from '@/components/layout/SiteNav';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { LandingHero } from '@/module/landing/components/LandingHero';
+import { LandingStack } from '@/module/landing/components/LandingStack';
 import { LandingAnatomy } from '@/module/landing/components/LandingAnatomy';
 import { LandingManifesto } from '@/module/landing/components/LandingManifesto';
+import { LandingTestimonials } from '@/module/landing/components/LandingTestimonials';
 import { LandingComparison } from '@/module/landing/components/LandingComparison';
 import { LandingFeatures } from '@/module/landing/components/LandingFeatures';
 import { LandingFourQuestions } from '@/module/landing/components/LandingFourQuestions';
@@ -17,8 +19,10 @@ export function LandingView() {
     <main className="bg-canvas-white text-ink overflow-x-hidden">
       <SiteNav />
       <LandingHero />
+      <LandingStack />
       <LandingAnatomy />
       <LandingManifesto />
+      <LandingTestimonials />
       <LandingComparison />
       <LandingFeatures />
       <LandingFourQuestions />
