@@ -1,7 +1,11 @@
 @import 'tailwindcss';
 @import '@hal/design-tokens/theme.css';
 
-/* Adora base — light theme, Plus Jakarta Sans + Montserrat-as-PolySans, tight tracking. */
+@theme {
+  --color-ink: #0b0b0b;
+  --color-ink-soft: #1a1a1a;
+}
+
 @layer base {
   :root {
     color-scheme: light;
@@ -15,32 +19,29 @@
 
   body {
     background: var(--color-canvas-white);
-    color: var(--color-slate-text);
+    color: var(--color-ink);
     font-family: var(--font-sans);
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1.5;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.015em;
   }
 
-  /* Every text element inherits Adora's signature -0.02em tracking. */
   h1, h2, h3, h4, h5, h6, p, span, a, button, li, input, textarea, label {
     letter-spacing: -0.02em;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    font-weight: 600;
-    color: var(--color-rich-violet);
-    line-height: 1.1;
+    font-weight: 700;
+    color: var(--color-ink);
+    line-height: 1.05;
   }
 
-  /* Selection — violet, on canvas. */
   ::selection {
-    background: var(--color-action-violet);
-    color: var(--color-canvas-white);
+    background: var(--color-ink);
+    color: var(--color-lush-green);
   }
 
-  /* Reset focus rings; components own their own. */
   :focus-visible {
     outline: none;
   }
@@ -48,18 +49,18 @@
 
 @layer utilities {
   .tracking-adora { letter-spacing: -0.02em; }
+  .tracking-compress { letter-spacing: -0.04em; }
   .font-display { font-family: var(--font-display); }
+  .font-wordmark { font-family: var(--font-wordmark-loaded), 'Anton', 'Impact', 'Archivo Black', ui-sans-serif, sans-serif; }
   .font-sans { font-family: var(--font-sans); }
+  .font-mono-grit { font-family: ui-monospace, 'JetBrains Mono', 'Menlo', monospace; }
 
-  /* Hero canvas — faint cross-hatch grid. */
-  .canvas-grid {
-    background-image:
-      linear-gradient(to right, rgba(53, 50, 65, 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(53, 50, 65, 0.045) 1px, transparent 1px);
-    background-size: 56px 56px;
-  }
+  /* Neo-brutalist hard border (signature). */
+  .brutal-border { border: 1.5px solid #0b0b0b; }
+  .brutal-border-2 { border: 2px solid #0b0b0b; }
+  .brutal-divider { border-top: 1.5px dashed #0b0b0b; }
 
-  /* Drifting orb animation. */
+  /* Drifting orb animation (used sparingly, only behind hero). */
   @keyframes drift {
     0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
     50% { transform: translate3d(0, -18px, 0) rotate(2deg); }
@@ -67,24 +68,32 @@
   .drift-slow { animation: drift 14s ease-in-out infinite; }
   .drift-slower { animation: drift 22s ease-in-out infinite; }
 
-  /* Marquee for platform strip. */
+  /* Marquee — used in a black strip with Meet/Zoom/Teams. */
   @keyframes marquee {
     0% { transform: translateX(0); }
     100% { transform: translateX(-50%); }
   }
   .marquee-track { animation: marquee 32s linear infinite; }
 
-  /* Soft fade-in for transcript stream. */
+  /* Transcript line-in (meeting mockup). */
   @keyframes line-in {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .line-in { animation: line-in 600ms cubic-bezier(0.2, 0.65, 0.2, 1) both; }
 
-  /* Decorative blinking cursor for the transcript. */
   @keyframes blink {
     0%, 49% { opacity: 1; }
     50%, 100% { opacity: 0; }
   }
   .cursor-blink { animation: blink 1.05s steps(1) infinite; }
+
+  /* Hand-drawn sketch underline used for emphasis. */
+  .sketch-underline {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 12' preserveAspectRatio='none'><path d='M2 9 C 60 2, 120 12, 238 5' stroke='%230b0b0b' stroke-width='3' stroke-linecap='round' fill='none'/></svg>");
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 100% 0.45em;
+    padding-bottom: 0.2em;
+  }
 }

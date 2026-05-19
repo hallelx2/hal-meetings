@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from 'next';
-import { Montserrat, Plus_Jakarta_Sans } from 'next/font/google';
+import { Anton, Montserrat, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+
+const wordmark = Anton({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-wordmark-loaded',
+  display: 'swap',
+});
 
 const display = Montserrat({
   subsets: ['latin'],
-  weight: ['600', '700', '800'],
+  weight: ['600', '700', '800', '900'],
   variable: '--font-display-loaded',
   display: 'swap',
 });
@@ -17,9 +24,10 @@ const sans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://hal-meetings.vercel.app'),
   title: 'Hal — the meeting agent that goes for you',
   description:
-    'Hal is an autonomous, self-hostable meeting agent. Connect your calendar once; Hal joins Google Meet, Zoom, and Microsoft Teams on your behalf, listens, speaks when you want it to, and follows up after.',
+    'An autonomous, self-hostable meeting agent. Connect your calendar once; Hal joins Google Meet, Zoom, and Microsoft Teams on your behalf, listens, speaks when you want it to, and follows up after.',
   keywords: [
     'meeting agent',
     'ai meeting bot',
@@ -46,14 +54,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#ffffff',
+  themeColor: '#dfff9d',
   width: 'device-width',
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en" className={`${wordmark.variable} ${display.variable} ${sans.variable}`}>
       <body
         style={{
           fontFamily: 'var(--font-sans-loaded), var(--font-sans)',
