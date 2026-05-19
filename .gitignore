@@ -10,8 +10,8 @@ build/
 dist/
 
 # bun
-bun.lock
 bun.lockb
+# bun.lock (text) IS committed for reproducible installs
 
 # env
 .env
