@@ -1,0 +1,67 @@
+# Render blueprint for the Hal bot worker. Apply via Render dashboard →
+# "Blueprints" → connect this repo. The web app stays on Vercel; this file
+# only describes the agent worker.
+#
+# https://render.com/docs/blueprint-spec
+
+services:
+  # The long-lived bot worker. Polls Postgres jobs table, joins meetings.
+  - type: worker
+    name: hal-agent
+    runtime: docker
+    dockerfilePath: ./apps/agent/Dockerfile
+    dockerContext: .
+    plan: starter # $7/mo, 512MB. Bump to standard when running real meetings.
+    region: frankfurt # match Neon EU region for low DB latency
+    autoDeploy: true
+    branch: main
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+
+      # Database — wire to Neon. Set this in Render dashboard once Neon URL is
+      # confirmed; sync: false leaves it as a manual entry.
+      - key: DATABASE_URL
+        sync: false
+
+      # KMS — local provider. The master key MUST be the same one the web app
+      # uses (envelope encryption is symmetric across services).
+      - key: KMS_PROVIDER
+        value: local
+      - key: HAL_LOCAL_KMS_KEY
+        sync: false
+
+      # LLM — Gemini by default. Override with ANTHROPIC_API_KEY + LLM_PROVIDER
+      # in dashboard if you switch.
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+
+      # STT — Deepgram on prod (real-time streaming, diarized).
+      - key: STT_PROVIDER
+        value: deepgram
+      - key: DEEPGRAM_API_KEY
+        sync: false
+
+      # Email
+      - key: RESEND_API_KEY
+        sync: false
+      - key: HAL_FROM_EMAIL
+        value: hal@hal-meetings.com
+
+      # Bot identity
+      - key: HAL_BOT_DISPLAY_NAME
+        value: "Hal · AI"
+      - key: HAL_PULSE_SINK
+        value: halsink
+
+      # Worker identity (used in jobs.claimed_by)
+      - key: HAL_AGENT_ID
+        generateValue: true
+
+databases: [] # Using external Neon, not Render Postgres.
