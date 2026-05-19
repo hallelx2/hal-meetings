@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 type Variant = 'primary' | 'ghost' | 'outline-nav';
 type Size = 'md' | 'lg';

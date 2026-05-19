@@ -1,7 +1,7 @@
-export { Button, LinkButton } from './button.js';
-export type { ButtonProps, LinkButtonProps } from './button.js';
-export { Badge } from './badge.js';
-export type { BadgeProps } from './badge.js';
-export { AccentCard } from './accent-card.js';
-export type { AccentCardProps } from './accent-card.js';
-export { cn } from './cn.js';
+export { Button, LinkButton } from './button';
+export type { ButtonProps, LinkButtonProps } from './button';
+export { Badge } from './badge';
+export type { BadgeProps } from './badge';
+export { AccentCard } from './accent-card';
+export type { AccentCardProps } from './accent-card';
+export { cn } from './cn';
