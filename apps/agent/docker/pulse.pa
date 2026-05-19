@@ -1,0 +1,7 @@
+# System-wide PulseAudio config for the Hal agent container.
+# Loads only the modules we actually need; creates a null sink that Chromium
+# plays into so `parec --device=halsink.monitor` can capture meeting audio.
+
+load-module module-native-protocol-unix auth-anonymous=1
+load-module module-null-sink sink_name=halsink sink_properties=device.description=halsink
+set-default-sink halsink
