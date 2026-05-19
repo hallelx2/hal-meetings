@@ -32,7 +32,7 @@ export function SelfHost() {
 
             <div className="flex flex-wrap gap-3 pt-2">
               <LinkButton
-                href="https://github.com/hachiago/hal-meetings"
+                href="https://github.com/hallelx2/hal-meetings"
                 variant="primary"
                 size="md"
                 target="_blank"
@@ -71,7 +71,7 @@ export function SelfHost() {
                 <span className="ml-3 text-[12px] text-white/45">~/hal-meetings</span>
               </div>
               <pre className="p-5 text-[13px] leading-[1.7] tracking-adora overflow-x-auto">
-{`$ `}<span className="text-electric-green">git</span>{` clone https://github.com/hachiago/hal-meetings
+{`$ `}<span className="text-electric-green">git</span>{` clone https://github.com/hallelx2/hal-meetings
 $ `}<span className="text-electric-green">cd</span>{` hal-meetings && cp .env.example .env
 $ `}<span className="text-electric-green">docker</span>{` compose up -d
 `}<span className="text-aqua-blue">→ web</span>{`     listening on http://localhost:3000

@@ -14,7 +14,7 @@ const cols = [
   {
     title: 'Open source',
     links: [
-      { label: 'GitHub', href: 'https://github.com/hachiago/hal-meetings' },
+      { label: 'GitHub', href: 'https://github.com/hallelx2/hal-meetings' },
       { label: 'Roadmap', href: '#' },
       { label: 'Contributing', href: '#' },
       { label: 'License (AGPL-3.0)', href: '#' },

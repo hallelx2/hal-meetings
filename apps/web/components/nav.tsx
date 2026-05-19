@@ -32,7 +32,7 @@ export function Nav() {
 
         <div className="flex items-center gap-2">
           <a
-            href="https://github.com/hachiago/hal-meetings"
+            href="https://github.com/hallelx2/hal-meetings"
             target="_blank"
             rel="noreferrer"
             className="hidden sm:inline-flex h-9 items-center gap-2 rounded-lg border border-cloud-mist px-3 text-[13px] font-medium text-slate-text hover:bg-soft-gray-fill/60 transition-colors"
