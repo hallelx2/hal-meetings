@@ -1,0 +1,26 @@
+{
+  "name": "@hal/crypto",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Envelope encryption for Hal. Per-user data encryption keys (DEKs) wrapped by a master key in a pluggable KMS (local libsodium, HashiCorp Vault Transit, AWS KMS, GCP KMS).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./kms": "./src/kms/index.ts",
+    "./envelope": "./src/envelope.ts",
+    "./redactor": "./src/redactor.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.6.3"
+  }
+}

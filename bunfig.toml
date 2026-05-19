@@ -1,3 +1,4 @@
 [install]
-# use workspace protocol for internal packages
-linker = "isolated"
+# hoisted linker — keeps packages with internal relative requires (libsodium-sumo,
+# playwright internals) discoverable without the isolated symlink layout.
+linker = "hoisted"
