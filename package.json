@@ -1,0 +1,24 @@
+{
+  "name": "hal-meetings",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hal — an autonomous, self-hostable meeting agent that joins Meet, Zoom, and Teams on your behalf.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter './apps/web' dev",
+    "build": "bun run --filter '*' build",
+    "lint": "bun run --filter '*' lint",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "bun@1.2.21",
+  "engines": {
+    "bun": ">=1.2.0",
+    "node": ">=20"
+  }
+}
