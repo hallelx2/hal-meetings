@@ -135,7 +135,7 @@ function V2() {
       <div className="brutal-border bg-action-violet text-canvas-white p-4 mb-3">
         <div className="text-[11px] font-bold uppercase tracking-adora opacity-80 mb-1">Display name</div>
         <div className="font-display text-[18px] font-bold tracking-adora">HAL · AI</div>
-        <div className="text-[12px] opacity-80">for Hal Okorie</div>
+        <div className="text-[12px] opacity-80">for Halleluyah Oludele</div>
       </div>
       <ul className="flex flex-col gap-1.5 text-[12.5px] text-ink/75">
         <li className="flex items-center gap-2"><Check /> Announces on join</li>

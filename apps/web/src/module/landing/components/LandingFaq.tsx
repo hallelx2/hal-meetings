@@ -37,7 +37,7 @@ const faqs = [
   },
   {
     q: 'Who built this and why?',
-    a: "Hal Okorie (hallelx2 on GitHub) built Hal because the existing meeting tools either join alongside you or require a 12-step Cursor build. Both feel wrong for the post-2026 \"agents that go for you\" pattern. The project is solo, open, and AGPL-3.0.",
+    a: "Halleluyah Darasimi Oludele (hallelx2 on GitHub) built Hal because the existing meeting tools either join alongside you or require a 12-step Cursor build. Both feel wrong for the post-2026 \"agents that go for you\" pattern. The project is solo, open, and AGPL-3.0.",
   },
 ];
 

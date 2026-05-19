@@ -7,9 +7,9 @@ import { cn } from '@hal/ui';
  */
 const transcriptLines = [
   { speaker: 'Maya', delay: 0, text: '…so the launch date slipped a week, but QA signed off this morning.' },
-  { speaker: 'Hal (AI · for Hal Okorie)', delay: 800, text: "Noted. I'll move the release announcement to next Friday and update the launch doc.", mine: true },
+  { speaker: 'Hal (AI · for Halleluyah Oludele)', delay: 800, text: "Noted. I'll move the release announcement to next Friday and update the launch doc.", mine: true },
   { speaker: 'Devon', delay: 1700, text: 'Perfect. Can someone also loop in support before then?' },
-  { speaker: 'Hal (AI · for Hal Okorie)', delay: 2600, text: "Drafting an email to support@ now — I'll send it for review after the call.", mine: true },
+  { speaker: 'Hal (AI · for Halleluyah Oludele)', delay: 2600, text: "Drafting an email to support@ now — I'll send it for review after the call.", mine: true },
 ];
 
 export function LandingMeetingMockup({ className }: { className?: string }) {
@@ -43,7 +43,7 @@ export function LandingMeetingMockup({ className }: { className?: string }) {
             name="HAL · AI"
             bg="bg-action-violet text-canvas-white"
             speaking
-            badge="for Hal Okorie"
+            badge="for Halleluyah Oludele"
           />
           <Participant name="Priya R." bg="bg-lush-green" speaking={false} />
         </div>

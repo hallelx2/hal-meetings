@@ -25,8 +25,8 @@ export function LandingManifesto() {
               H
             </span>
             <div className="flex flex-col">
-              <span className="font-display text-[15px] font-bold tracking-adora">Hal Okorie</span>
-              <span className="text-[12px] text-canvas-white/55 uppercase tracking-adora">Built Hal · 2026</span>
+              <span className="font-display text-[15px] font-bold tracking-adora">Halleluyah Darasimi Oludele</span>
+              <span className="text-[12px] text-canvas-white/55 uppercase tracking-adora">Built Hal · hallelx2 · 2026</span>
             </div>
           </div>
         </div>
