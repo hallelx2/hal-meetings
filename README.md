@@ -40,6 +40,16 @@ bun install
 bun run dev
 ```
 
+## Deploy
+
+| Surface | Host | Doc |
+|---|---|---|
+| Landing + dashboard (`apps/web`) | Vercel | auto-deploys from `main` |
+| Database | [Neon](https://neon.tech) | `packages/db/README.md` |
+| Bot agent (`apps/agent`) | Oracle Cloud Always Free (recommended), Render, your laptop | [`docs/deploy-oracle.md`](./docs/deploy-oracle.md) |
+
+The agent's Dockerfile is multi-arch and runs identically on x86_64 and arm64 — Oracle's free ARM VM and a beefier x86 box behave the same.
+
 ## License
 
 To be decided — leaning AGPL-3.0 for the core, MIT for `packages/*`.

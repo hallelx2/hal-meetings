@@ -16,6 +16,9 @@ bun.lockb
 # env
 .env
 .env*.local
+apps/agent/.env
+apps/agent/.env.production
+apps/web/.env.production
 
 # vercel
 .vercel/
