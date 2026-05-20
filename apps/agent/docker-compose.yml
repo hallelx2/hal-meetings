@@ -1,0 +1,61 @@
+# Docker Compose for running the Hal agent on a single host.
+#
+# Designed for the Oracle Cloud Always Free ARM VM (4 OCPU / 24 GB RAM).
+# Works identically on amd64 — the base image is multi-arch.
+#
+# Usage from the repo root:
+#   docker compose -f apps/agent/docker-compose.yml up -d --build
+#   docker compose -f apps/agent/docker-compose.yml logs -f hal-agent
+#   docker compose -f apps/agent/docker-compose.yml down
+
+services:
+  hal-agent:
+    build:
+      context: ../..
+      dockerfile: apps/agent/Dockerfile
+    image: hal-agent:local
+    container_name: hal-agent
+    restart: unless-stopped
+
+    # Long-lived worker — polls Postgres for jobs, joins meetings.
+    command: ["bun", "run", "src/cli.ts", "worker", "--concurrency", "1"]
+
+    env_file:
+      - ./.env
+
+    # The container is self-contained (Xvfb + PulseAudio inside). It doesn't
+    # listen on any port — all traffic is outbound (Neon, Gemini, Deepgram, Resend, Meet).
+
+    # Resource ceiling. Tune per host. On a 24 GB Ampere VM these are conservative.
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          memory: 768M
+
+    # tmpfs for whisper/audio scratch. Avoids wearing out the boot volume.
+    tmpfs:
+      - /tmp/hal-audio:size=512M,mode=1777
+      - /var/log:size=128M,mode=1777
+
+    # Health: the worker doesn't expose HTTP, so we check the bun process exists.
+    # When you add a /healthz HTTP endpoint inside the worker, switch this to curl.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'bun.*worker' >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    # Useful for diagnosing audio routing issues.
+    cap_add:
+      - SYS_PTRACE
+
+    # Logging — capped per-container. The host's docker daemon also caps via
+    # /etc/docker/daemon.json (set by oracle-vm-bootstrap.sh).
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
