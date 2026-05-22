@@ -53,6 +53,12 @@ variable "boot_volume_gb" {
   default = 100
 }
 
+variable "availability_domain_index" {
+  type        = number
+  description = "Which AD to launch in (0,1,2). The retry loop rotates these to dodge 'Out of host capacity'."
+  default     = 0
+}
+
 // ---- SSH ----
 variable "ssh_public_key_path" {
   type        = string

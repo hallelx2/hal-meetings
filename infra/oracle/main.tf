@@ -72,7 +72,7 @@ resource "oci_core_subnet" "hal" {
 // ---- The instance ----
 resource "oci_core_instance" "hal" {
   compartment_id      = var.compartment_ocid
-  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[var.availability_domain_index % length(data.oci_identity_availability_domains.ads.availability_domains)].name
   display_name        = var.instance_name
   shape               = "VM.Standard.A1.Flex"
 
