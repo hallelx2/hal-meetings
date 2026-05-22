@@ -1,0 +1,98 @@
+#cloud-config
+# Runs as root on first boot of the Oracle Ubuntu 22.04 ARM VM.
+# Installs Docker, fixes Oracle's iptables, writes Hal's .env, clones the repo,
+# and starts the agent. After this completes the VM is fully running Hal.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+  - jq
+  - htop
+  - iptables-persistent
+
+write_files:
+  # Hal env. 0600, root-owned — secrets never world-readable.
+  - path: /opt/hal/.env
+    permissions: "0600"
+    owner: root:root
+    content: |
+      DATABASE_URL=${database_url}
+      KMS_PROVIDER=local
+      HAL_LOCAL_KMS_KEY=${local_kms_key}
+      LLM_PROVIDER=gemini
+      GEMINI_API_KEY=${gemini_api_key}
+      GEMINI_MODEL=${gemini_model}
+      STT_PROVIDER=deepgram
+      DEEPGRAM_API_KEY=${deepgram_api_key}
+      RESEND_API_KEY=${resend_api_key}
+      HAL_FROM_EMAIL=${from_email}
+      HAL_BOT_DISPLAY_NAME=Hal · AI for {{user}}
+      HAL_BOT_DISCLOSURE=Hi — I'm Hal, an AI assistant joining on {{user}}'s behalf. I'm transcribing this meeting. Reply '/hal stop' in chat to remove me.
+      HAL_PULSE_SINK=halsink
+      HAL_AUDIO_DIR=/tmp/hal-audio
+      NODE_ENV=production
+      LOG_LEVEL=info
+
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "20m", "max-file": "5" }
+      }
+
+  - path: /etc/systemd/system/hal-agent.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Hal Agent (docker compose)
+      Requires=docker.service
+      After=docker.service network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/hal/hal-meetings
+      ExecStart=/usr/bin/docker compose -f apps/agent/docker-compose.yml --env-file /opt/hal/.env up -d --build
+      ExecStop=/usr/bin/docker compose -f apps/agent/docker-compose.yml down
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # ---- Docker install (official repo) ----
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - chmod a+r /etc/apt/keyrings/docker.gpg
+  - echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update -q
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - usermod -aG docker ubuntu
+  - systemctl enable docker
+
+  # ---- Fix Oracle's iptables (forward chain drops docker bridge traffic) ----
+  - iptables -I INPUT 1 -p tcp --dport 22 -j ACCEPT
+  - iptables -I FORWARD 1 -j ACCEPT
+  - netfilter-persistent save
+
+  # ---- 4 GB swap (defensive) ----
+  - fallocate -l 4G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+  # ---- Link the env into the agent dir + clone + start ----
+  - git clone --branch ${git_branch} ${git_repo_url} /opt/hal/hal-meetings
+  - cp /opt/hal/.env /opt/hal/hal-meetings/apps/agent/.env
+  - chmod 600 /opt/hal/hal-meetings/apps/agent/.env
+  - systemctl daemon-reload
+  - systemctl enable hal-agent
+  - systemctl start hal-agent
+
+final_message: "Hal agent cloud-init complete after $UPTIME seconds. Check: systemctl status hal-agent"

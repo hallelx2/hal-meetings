@@ -1,0 +1,9 @@
+# Terraform — never commit state or secret vars
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log

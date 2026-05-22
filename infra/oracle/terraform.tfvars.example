@@ -1,0 +1,26 @@
+# Copy to terraform.tfvars and fill in. This file holds secrets — it is
+# gitignored. NEVER commit terraform.tfvars or terraform.tfstate.
+
+# ---- OCI auth (from the one-time API key setup) ----
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaa..."
+user_ocid        = "ocid1.user.oc1..aaaa..."
+fingerprint      = "aa:bb:cc:dd:..."
+private_key_path = "~/.oci/hal_api_key.pem"
+region           = "eu-frankfurt-1"
+compartment_ocid = "ocid1.tenancy.oc1..aaaa..." # root tenancy OCID is fine
+
+# ---- SSH ----
+ssh_public_key_path = "~/.ssh/hal-oracle.pub"
+
+# ---- Hal app secrets (pull values from Vercel) ----
+hal_database_url     = "postgresql://neondb_owner:...@ep-late-scene-al3rnn2e.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+hal_local_kms_key    = "the-64-hex-char-key-that-matches-vercel"
+hal_gemini_api_key   = "AIza..."
+hal_gemini_model     = "gemini-2.5-flash"
+hal_deepgram_api_key = "..."
+hal_resend_api_key   = "re_..."
+hal_from_email       = "hal@hal-meetings.com"
+
+# ---- Shape (Always Free max) ----
+ocpus     = 4
+memory_gb = 24
