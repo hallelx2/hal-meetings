@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { HalWordmark } from '@/components/shared/HalWordmark';
 import { SessionActions } from '@/module/cockpit/components/SessionActions';
+import { JoinMeetForm } from '@/module/cockpit/components/JoinMeetForm';
 
 export function CockpitView(props: {
   email: string;
@@ -27,6 +28,7 @@ export function CockpitView(props: {
             ? 'Google Calendar is connected. Tokens are stored encrypted and are not sent to this page.'
             : 'Google Calendar is not connected. Sign in with Google again to grant Calendar read access.'}
         </p>
+        <JoinMeetForm />
         <SessionActions googleConnected={props.googleConnected} />
       </section>
     </main>
