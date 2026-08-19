@@ -13,7 +13,8 @@
   "scripts": {
     "start": "bun run src/cli.ts",
     "dev": "bun --hot run src/cli.ts",
-    "worker": "bun run src/worker.ts",
+    "worker": "bun run src/cli.ts worker",
+    "seed-user": "bun run src/scripts/seed-user.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

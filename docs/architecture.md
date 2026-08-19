@@ -143,22 +143,23 @@ Once that works end-to-end:
 ```
 hal-meetings/
 ├── apps/
-│   └── web/                  # Next.js 15 — landing + dashboard (this commit)
+│   ├── web/                  # Next.js 15 — landing; cockpit not shipped
+│   └── agent/                # Meet Playwright runtime + job worker (Zoom/Teams stubs)
 ├── packages/
 │   ├── design-tokens/        # Adora system tokens (CSS + TS)
-│   └── ui/                   # Shared React primitives
+│   ├── ui/                   # Shared React primitives
+│   ├── db/                   # Drizzle + repos (users, oauth_tokens, meetings, jobs, …)
+│   ├── crypto/               # Envelope encryption, pluggable KMS
+│   └── media/                # STT / LLM / TTS + summarizer (not a separate providers pkg)
+├── infra/                    # leftover Oracle; AWS EC2 is the dogfood host
 └── docs/
     └── architecture.md       # ← you are here
 ```
 
-Planned, not yet scaffolded:
+Planned, not scaffolded:
 
 - `apps/desktop` — Tauri app for native menu-bar control and on-device meeting capture
 - `apps/mobile` — Expo app for joining physical, in-person meetings via device mic
-- `apps/agent` — the bot runtime (headless browser + Zoom/Teams SDK workers, deployed as containers)
-- `packages/db` — Drizzle schema + migrations (`users`, `oauth_tokens`, `meetings`, `transcripts`, ...)
-- `packages/crypto` — envelope encryption with pluggable KMS providers
-- `packages/providers` — provider interfaces and adapters (STT, TTS, LLM, storage)
 
 ## Open questions, deliberately deferred
 
