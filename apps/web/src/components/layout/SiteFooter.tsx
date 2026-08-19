@@ -24,9 +24,9 @@ const cols = [
     title: 'Index',
     links: [
       { label: 'Manifesto', href: '#manifesto' },
-      { label: 'Privacy', href: '#privacy' },
-      { label: 'Terms', href: '#' },
-      { label: 'Contact', href: 'mailto:hachiagoholdings@gmail.com' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Sign in', href: '/login' },
+      { label: 'Contact', href: 'mailto:founder@hallelx2.com' },
     ],
   },
 ];
