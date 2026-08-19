@@ -20,6 +20,7 @@ WORKDIR /workspace
 # Install workspace deps. Copy lockfile + package manifests first for cache reuse.
 COPY package.json bun.lock bunfig.toml tsconfig.base.json ./
 COPY apps/agent/package.json apps/agent/package.json
+COPY apps/web/package.json apps/web/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/crypto/package.json packages/crypto/package.json
 COPY packages/media/package.json packages/media/package.json
