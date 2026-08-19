@@ -1,4 +1,4 @@
-FROM oven/bun:1.2-debian AS base
+FROM oven/bun:1.2.21-debian AS base
 
 # System deps for Playwright Chromium + audio capture + Whisper.cpp build.
 RUN apt-get update && apt-get install -y --no-install-recommends \
