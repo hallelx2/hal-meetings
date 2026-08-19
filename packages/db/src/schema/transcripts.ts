@@ -8,6 +8,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users, bytea } from './users';
 import { meetings } from './meetings';
+import { workspaces } from './workspaces';
 
 /**
  * transcripts — encrypted blob per meeting. Content is markdown ciphertext;
@@ -18,6 +19,9 @@ export const transcripts = pgTable(
   'transcripts',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -44,6 +48,10 @@ export const transcripts = pgTable(
   (table) => ({
     meetingIdx: index('transcripts_meeting_idx').on(table.meetingId),
     userCreatedIdx: index('transcripts_user_created_idx').on(table.userId, table.createdAt),
+    workspaceCreatedIdx: index('transcripts_workspace_created_idx').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
   }),
 );
 

@@ -7,6 +7,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { users, bytea } from './users';
+import { workspaces } from './workspaces';
 
 /**
  * jobs — Postgres-backed work queue. Pre-M5 simple-poll implementation; can
@@ -18,6 +19,7 @@ export const jobs = pgTable(
   'jobs',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
     kind: text('kind').notNull(), // see JOB_KINDS

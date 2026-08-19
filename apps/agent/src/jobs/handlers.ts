@@ -6,6 +6,7 @@ import type { AudioCapture } from '../audio/types';
 import type { EmailSender } from '../email/resend';
 import type { Logger } from '../logger';
 import { runMeetingSession } from '../pipeline/meeting-session';
+import { decryptJoinMeetingPayload } from '../workspace';
 
 export interface JoinMeetingPayload {
   meetingId: string;
@@ -20,28 +21,29 @@ export interface HandlerContext {
   email?: EmailSender;
   fromEmail: string;
   log: Logger;
-  /** Factory: given a platform, return the runtime + audio. Lets handlers stay platform-agnostic. */
   resolveRuntime: (platform: 'meet' | 'zoom' | 'teams') => { runtime: BotRuntime; audio: AudioCapture };
-  /** Bot identity templates. */
-  botDisplayName: string; // can contain {{user}}
-  botDisclosure: string; // can contain {{user}}
+  botDisplayName: string;
+  botDisclosure: string;
 }
 
-/**
- * Handler for `join_meeting` jobs. Decrypts the meeting payload, resolves
- * the user's DEK + email, picks a runtime, and runs the full session.
- */
 export function makeJoinMeetingHandler(ctx: HandlerContext) {
   return async function joinMeetingHandler(job: JobRow): Promise<void> {
-    const payload = await ctx.envelope.decryptJson<JoinMeetingPayload>({
-      wrappedDek: await getServiceDek(ctx),
-      keyId: await getServiceKeyId(ctx),
-      ciphertext: job.payloadCt,
-    });
+    if (!job.workspaceId) {
+      throw new Error(`job ${job.id} has no workspace_id`);
+    }
+    const workspace = await ctx.repos.workspaces.findById(job.workspaceId);
+    if (!workspace) {
+      throw new Error(`workspace not found: ${job.workspaceId}`);
+    }
+
+    const payload = await decryptJoinMeetingPayload(ctx.envelope, workspace, job.payloadCt);
 
     const meeting = await ctx.repos.meetings.findById(payload.meetingId);
     if (!meeting) {
       throw new Error(`meeting not found: ${payload.meetingId}`);
+    }
+    if (meeting.workspaceId !== workspace.id) {
+      throw new Error(`meeting ${meeting.id} is not in workspace ${workspace.id}`);
     }
     if (!meeting.externalUrl) {
       throw new Error(`meeting ${meeting.id} has no externalUrl`);
@@ -72,6 +74,7 @@ export function makeJoinMeetingHandler(ctx: HandlerContext) {
         log: ctx.log,
       },
       {
+        workspaceId: workspace.id,
         userId: user.id,
         userEmail: user.email,
         userDisplayName: userName,
@@ -87,29 +90,3 @@ export function makeJoinMeetingHandler(ctx: HandlerContext) {
     );
   };
 }
-
-/**
- * Job payloads are encrypted with the service-level DEK (not per-user) so
- * the consumer can decrypt them without knowing the user yet. In a real
- * deployment, this is a fixed system user. For Phase 0 we accept that the
- * job payload contains only the meeting id — a reference, not the data —
- * so its sensitivity is low.
- */
-async function getServiceDek(ctx: HandlerContext): Promise<Uint8Array> {
-  // We can use the "system" user's DEK or a service-fixed one. For now,
-  // generate a stable per-process service DEK by deriving from a constant.
-  // (Acceptable for Phase 0 since payloads carry only reference ids.)
-  // Production should store a dedicated service user with its own DEK.
-  if (!cachedServiceDek) {
-    cachedServiceDek = await ctx.envelope.generateUserDek();
-  }
-  return cachedServiceDek.wrappedDek;
-}
-async function getServiceKeyId(ctx: HandlerContext): Promise<string> {
-  if (!cachedServiceDek) {
-    cachedServiceDek = await ctx.envelope.generateUserDek();
-  }
-  return cachedServiceDek.keyId;
-}
-
-let cachedServiceDek: { wrappedDek: Uint8Array; keyId: string } | null = null;

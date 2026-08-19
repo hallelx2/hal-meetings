@@ -19,6 +19,7 @@ import { ResendEmailSender, NullEmailSender } from './email/resend';
 import { JobConsumer } from './jobs/consumer';
 import { makeJoinMeetingHandler } from './jobs/handlers';
 import { runMeetingSession } from './pipeline/meeting-session';
+import { requireWorkspaceForUser } from './workspace';
 import type { Platform } from '@hal/db';
 
 const program = new Command();
@@ -57,7 +58,10 @@ program
     }
 
     // Make a new meeting row (or could be passed in via --meeting flag).
+    const workspace = await requireWorkspaceForUser(repos, envelope, user);
+
     const meeting = await repos.meetings.create({
+      workspaceId: workspace.id,
       userId: user.id,
       platform: opts.platform,
       externalUrl: opts.url,
@@ -89,6 +93,7 @@ program
           log,
         },
         {
+          workspaceId: workspace.id,
           userId: user.id,
           userEmail: user.email,
           userDisplayName: user.name ?? user.email.split('@')[0]!,

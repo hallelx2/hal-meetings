@@ -2,7 +2,7 @@
   "name": "@hal/db",
   "version": "0.0.0",
   "private": true,
-  "description": "Hal's database layer — Drizzle schema, client, and typed repositories. All tables are foreign-keyed to user_id (multi-tenant by construction). Secret-bearing columns are bytea ciphertext.",
+    "description": "Hal's database layer — Drizzle schema, client, and typed repositories. Isolation is workspace_id; users belong via workspace_members. Secret-bearing columns are bytea ciphertext.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

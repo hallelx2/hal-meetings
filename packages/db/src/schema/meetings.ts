@@ -7,6 +7,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
+import { workspaces } from './workspaces';
 
 /**
  * meetings — one row per meeting Hal knows about. Populated either from a
@@ -16,6 +17,9 @@ export const meetings = pgTable(
   'meetings',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -46,6 +50,10 @@ export const meetings = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
+    workspaceScheduledIdx: index('meetings_workspace_scheduled_idx').on(
+      table.workspaceId,
+      table.scheduledStart,
+    ),
     userScheduledIdx: index('meetings_user_scheduled_idx').on(table.userId, table.scheduledStart),
     statusIdx: index('meetings_status_idx').on(table.status),
     platformIdx: index('meetings_platform_idx').on(table.platform),

@@ -7,6 +7,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users, bytea } from './users';
+import { workspaces } from './workspaces';
 
 /**
  * OAuth tokens — the crown jewels. Every value here is ciphertext. We store
@@ -17,6 +18,9 @@ export const oauthTokens = pgTable(
   'oauth_tokens',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),

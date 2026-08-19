@@ -27,6 +27,7 @@ export interface MeetingSessionDeps {
 }
 
 export interface MeetingSessionContext {
+  workspaceId: string;
   userId: string;
   userEmail: string;
   userDisplayName: string;
@@ -121,6 +122,7 @@ export async function runMeetingSession(
 
   await repos.meetings.updateStatus(ctx.meetingId, 'in-progress', { actualStart: new Date() });
   await repos.auditLog.record({
+    workspaceId: ctx.workspaceId,
     userId: ctx.userId,
     meetingId: ctx.meetingId,
     action: 'bot_joined',
@@ -135,6 +137,7 @@ export async function runMeetingSession(
         case 'disclosed':
           repos.auditLog
             .record({
+              workspaceId: ctx.workspaceId,
               userId: ctx.userId,
               meetingId: ctx.meetingId,
               action: 'bot_disclosed',
@@ -146,6 +149,7 @@ export async function runMeetingSession(
         case 'chat-message':
           repos.auditLog
             .record({
+              workspaceId: ctx.workspaceId,
               userId: ctx.userId,
               meetingId: ctx.meetingId,
               action: 'bot_chatted',
@@ -219,6 +223,7 @@ export async function runMeetingSession(
   });
 
   const created = await repos.transcripts.create({
+    workspaceId: ctx.workspaceId,
     userId: ctx.userId,
     meetingId: ctx.meetingId,
     contentCt,
@@ -232,6 +237,7 @@ export async function runMeetingSession(
 
   await repos.meetings.updateStatus(ctx.meetingId, 'completed', { actualEnd: new Date() });
   await repos.auditLog.record({
+    workspaceId: ctx.workspaceId,
     userId: ctx.userId,
     meetingId: ctx.meetingId,
     action: 'transcript_created',
@@ -259,6 +265,7 @@ export async function runMeetingSession(
       const sent = await email.send(body);
       emailId = sent.id;
       await repos.auditLog.record({
+        workspaceId: ctx.workspaceId,
         userId: ctx.userId,
         meetingId: ctx.meetingId,
         action: 'email_sent',
