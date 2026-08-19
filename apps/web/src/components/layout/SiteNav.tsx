@@ -41,12 +41,12 @@ export function SiteNav() {
             </svg>
             Star
           </a>
-          <a
-            href="#waitlist"
+          <Link
+            href="/login"
             className="inline-flex h-10 items-center px-5 bg-ink text-canvas-white text-[14px] font-bold uppercase tracking-adora hover:bg-ink-soft transition-colors"
           >
-            Get early access
-          </a>
+            Sign in
+          </Link>
         </div>
       </nav>
     </header>

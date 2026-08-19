@@ -24,7 +24,7 @@ const sans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://hal-meetings.vercel.app'),
+  metadataBase: new URL('https://hal.hallelx2.com'),
   title: 'Hal — the meeting agent that goes for you',
   description:
     'An autonomous, self-hostable meeting agent. Connect your calendar once; Hal joins Google Meet, Zoom, and Microsoft Teams on your behalf, listens, speaks when you want it to, and follows up after.',
