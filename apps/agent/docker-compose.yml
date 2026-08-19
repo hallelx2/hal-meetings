@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
     # Long-lived worker — polls Postgres for jobs, joins meetings.
-    command: ["bun", "run", "src/cli.ts", "worker", "--concurrency", "1"]
+    command: ["bun", "src/cli.ts", "worker", "--concurrency", "1"]
 
     env_file:
       - ./.env

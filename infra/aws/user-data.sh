@@ -55,7 +55,9 @@ write_env() {
 for i in $(seq 1 30); do
   if aws ssm get-parameter --region "$REGION" --name "$SSM_PATH/DATABASE_URL" --with-decryption >/dev/null 2>&1; then
     write_env
-    if grep -q '^DATABASE_URL=UNSET' /opt/hal/.env || ! grep -q '^DATABASE_URL=.' /opt/hal/.env; then
+    if grep -qE '^(DATABASE_URL|HAL_LOCAL_KMS_KEY|GEMINI_API_KEY|DEEPGRAM_API_KEY|RESEND_API_KEY)=UNSET$' /opt/hal/.env \
+      || ! grep -q '^DATABASE_URL=.' /opt/hal/.env \
+      || ! grep -qE '^HAL_LOCAL_KMS_KEY=[0-9a-fA-F]{64}$' /opt/hal/.env; then
       echo "SSM secrets still UNSET, retry $i"
     else
       break
