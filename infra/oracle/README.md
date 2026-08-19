@@ -1,3 +1,9 @@
+# LEFTOVER — Oracle Cloud Always Free
+
+**Do not use.** The Oracle VM is gone. Dogfood host is `infra/aws` (EC2). Kept only so old docs and state files still resolve.
+
+---
+
 # Hal Agent — Oracle Cloud Terraform module
 
 Provisions a free Ampere ARM VM (4 OCPU / 24 GB) on Oracle Cloud Always Free,

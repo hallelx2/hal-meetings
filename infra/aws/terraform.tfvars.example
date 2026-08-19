@@ -1,0 +1,6 @@
+region        = "eu-central-1"
+instance_name = "hal-agent"
+instance_type = "t3.medium"
+key_name      = "hal-agent"
+ssh_cidr      = "1.2.3.4/32"
+git_branch    = "main"
