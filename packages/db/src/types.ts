@@ -3,6 +3,12 @@
  * Drizzle gives us narrowed string literal types at the call site.
  */
 
+export const WORKSPACE_PLANS = ['personal', 'team', 'hosted'] as const;
+export type WorkspacePlan = (typeof WORKSPACE_PLANS)[number];
+
+export const WORKSPACE_ROLES = ['owner', 'member'] as const;
+export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
+
 export const PLATFORMS = ['meet', 'zoom', 'teams'] as const;
 export type Platform = (typeof PLATFORMS)[number];
 

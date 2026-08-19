@@ -8,6 +8,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { meetings } from './meetings';
+import { workspaces } from './workspaces';
 
 /**
  * audit_log — append-only record of every meaningful action Hal takes.
@@ -22,6 +23,7 @@ export const auditLog = pgTable(
   'audit_log',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     meetingId: uuid('meeting_id').references(() => meetings.id, { onDelete: 'set null' }),
 

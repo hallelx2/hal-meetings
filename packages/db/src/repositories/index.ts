@@ -1,12 +1,21 @@
 import type { Db } from '../client';
 import { UsersRepository } from './users';
+import { WorkspacesRepository } from './workspaces';
 import { OauthTokensRepository } from './oauth-tokens';
 import { MeetingsRepository } from './meetings';
 import { TranscriptsRepository } from './transcripts';
 import { JobsRepository } from './jobs';
 import { AuditLogRepository } from './audit-log';
 
-export { UsersRepository, OauthTokensRepository, MeetingsRepository, TranscriptsRepository, JobsRepository, AuditLogRepository };
+export {
+  UsersRepository,
+  WorkspacesRepository,
+  OauthTokensRepository,
+  MeetingsRepository,
+  TranscriptsRepository,
+  JobsRepository,
+  AuditLogRepository,
+};
 
 /**
  * One-stop factory that wires all repositories onto a single Drizzle db
@@ -15,6 +24,7 @@ export { UsersRepository, OauthTokensRepository, MeetingsRepository, Transcripts
  */
 export interface Repositories {
   users: UsersRepository;
+  workspaces: WorkspacesRepository;
   oauthTokens: OauthTokensRepository;
   meetings: MeetingsRepository;
   transcripts: TranscriptsRepository;
@@ -25,6 +35,7 @@ export interface Repositories {
 export function makeRepositories(db: Db): Repositories {
   return {
     users: new UsersRepository(db),
+    workspaces: new WorkspacesRepository(db),
     oauthTokens: new OauthTokensRepository(db),
     meetings: new MeetingsRepository(db),
     transcripts: new TranscriptsRepository(db),
