@@ -1,7 +1,7 @@
 # Docker Compose for running the Hal agent on a single host.
 #
-# Designed for the Oracle Cloud Always Free ARM VM (4 OCPU / 24 GB RAM).
-# Works identically on amd64 — the base image is multi-arch.
+# Designed for the AWS EC2 dogfood host (infra/aws, Ubuntu 24.04 t3.medium).
+# Works on amd64 and arm64.
 #
 # Usage from the repo root:
 #   docker compose -f apps/agent/docker-compose.yml up -d --build
@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
     # Long-lived worker — polls Postgres for jobs, joins meetings.
-    command: ["bun", "run", "src/cli.ts", "worker", "--concurrency", "1"]
+    command: ["bun", "src/cli.ts", "worker", "--concurrency", "1"]
 
     env_file:
       - ./.env

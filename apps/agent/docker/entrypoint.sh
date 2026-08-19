@@ -6,8 +6,14 @@ set -euo pipefail
 Xvfb :99 -screen 0 1280x800x24 >/var/log/xvfb.log 2>&1 &
 export DISPLAY=:99
 
-# Start PulseAudio in system mode using our config.
-pulseaudio --system --daemonize --disallow-exit --exit-idle-time=-1 --log-target=stderr 2>/var/log/pulseaudio.log
+mkdir -p /var/run/pulse /run/user/0
+export XDG_RUNTIME_DIR=/run/user/0
+pulseaudio --daemonize=yes --exit-idle-time=-1 --log-target=stderr --use-pid-file=yes \
+  --file=/etc/pulse/system.pa >/var/log/pulseaudio.log 2>&1 || {
+  echo "[entrypoint] pulseaudio failed:" >&2
+  cat /var/log/pulseaudio.log >&2 || true
+  exit 1
+}
 
 # Wait briefly for pulse to initialize.
 for i in 1 2 3 4 5; do
