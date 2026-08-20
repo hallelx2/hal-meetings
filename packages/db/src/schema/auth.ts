@@ -1,4 +1,11 @@
-import { pgTable, text, timestamp, boolean, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 export const authUser = pgTable('auth_user', {
   id: text('id').primaryKey(),
@@ -34,6 +41,13 @@ export const authAccount = pgTable(
   {
     id: text('id').primaryKey(),
     accountId: text('account_id').notNull(),
+    // Better Auth >= 1.7 keys an OAuth identity on (issuer, accountId), not
+    // (providerId, accountId). For providers that publish one this is the real
+    // OIDC issuer — Google's is `https://accounts.google.com`; for the rest it
+    // is the synthetic `local:oauth:<providerId>`. Omitting this column made
+    // the adapter build `where ( = $1 ...)` and every sign-in died on a
+    // Postgres syntax error.
+    issuer: text('issuer').notNull(),
     providerId: text('provider_id').notNull(),
     userId: text('user_id')
       .notNull()
@@ -50,6 +64,10 @@ export const authAccount = pgTable(
   },
   (table) => ({
     userIdx: index('auth_account_user_idx').on(table.userId),
+    issuerAccountIdx: uniqueIndex('auth_account_issuer_account_idx').on(
+      table.issuer,
+      table.accountId,
+    ),
   }),
 );
 
