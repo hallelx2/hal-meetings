@@ -13,6 +13,8 @@ Database layer for Hal — Drizzle ORM schema, typed repositories, Postgres clie
 | `jobs` | Postgres-backed work queue with retry + back-off. | `payload_ct`, `result_ct` |
 | `audit_log` | Append-only timeline of Hal's actions. | (none — references encrypted rows by id) |
 
+The `auth_*` tables are owned by Better Auth, not by us. Their shape is dictated by the installed `better-auth` version, so **`better-auth` is pinned to a patch range** in `apps/web/package.json`. A minor bump can add a required column, and the failure mode is ugly: the Drizzle adapter resolves the unknown field to `undefined`, emits `where ( = $1 …)`, and Postgres rejects it as a syntax error that Better Auth reports only as "unable to query your database". That is exactly how 1.3 → 1.7 broke every sign-in by adding `account.issuer`. Bump the range deliberately, and diff `getAuthTables()` against `src/schema/auth.ts` when you do.
+
 ## Use
 
 ```ts
