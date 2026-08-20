@@ -1,0 +1,11 @@
+# Shell scripts in this repo run on Linux — cloud-init user-data, the agent
+# container entrypoint, the EC2 env generator. A CRLF checkout on Windows makes
+# the shebang `#!/bin/bash\r`, which fails with an unreadable "no such file or
+# directory". Pin them to LF regardless of core.autocrlf.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# PowerShell is the Windows side of the same toolchain; leave it CRLF.
+*.ps1 text eol=crlf
