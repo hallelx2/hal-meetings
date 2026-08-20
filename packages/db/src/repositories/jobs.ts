@@ -33,16 +33,24 @@ export class JobsRepository {
   async claim(opts: ClaimOptions): Promise<JobRow[]> {
     const limit = opts.limit ?? 1;
     const kindList = opts.kinds && opts.kinds.length > 0 ? opts.kinds : null;
+    const kindFilter = kindList
+      ? sql`AND ${jobs.kind} IN (${sql.join(
+          kindList.map((kind) => sql`${kind}`),
+          sql`, `,
+        )})`
+      : sql``;
 
     // Drizzle 0.36 supports raw SQL for complex CTEs. We use FOR UPDATE SKIP
     // LOCKED to avoid two workers grabbing the same job.
+    // IN (...), not ANY($1): postgres-js binds a JS string[] as text, and
+    // ANY(text) is a malformed array literal.
     const rows = await this.db.execute<JobRow>(sql`
       WITH claimed AS (
         SELECT id
         FROM ${jobs}
         WHERE ${jobs.status} = 'pending'
           AND ${jobs.scheduledFor} <= NOW()
-          ${kindList ? sql`AND ${jobs.kind} = ANY(${kindList})` : sql``}
+          ${kindFilter}
         ORDER BY ${jobs.priority} DESC, ${jobs.scheduledFor} ASC
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED
