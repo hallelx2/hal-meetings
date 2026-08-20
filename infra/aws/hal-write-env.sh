@@ -101,6 +101,13 @@ env_is_complete() {
 # First boot races the SSM parameters being pushed, so retry rather than fail
 # the unit. ~5 minutes total.
 attempts="${HAL_WRITE_ENV_ATTEMPTS:-30}"
+# A garbage override falls through to the "keep the existing env" path anyway,
+# because a failing command substitution in a for-list does not trip set -e.
+# Say so deliberately instead of relying on that, and skip seq's stderr noise.
+if ! [[ "$attempts" =~ ^[0-9]+$ ]]; then
+  echo "hal-write-env: HAL_WRITE_ENV_ATTEMPTS='$attempts' is not a non-negative integer; not retrying" >&2
+  attempts=0
+fi
 for i in $(seq 1 "$attempts"); do
   if fetch_env && env_is_complete; then
     mv "$TMP" "$ENV_FILE"
