@@ -13,7 +13,14 @@ export interface CreateDbOptions {
   idleTimeout?: number;
   /** Connection timeout in seconds. Default 10. */
   connectTimeout?: number;
-  /** Enable Drizzle query logging. Default false. */
+  /**
+   * Log every SQL statement Drizzle emits. Defaults to `DB_LOG_QUERIES=1`.
+   *
+   * Better Auth reports adapter failures as "unable to query your database"
+   * and swallows the statement, which leaves a Postgres syntax error with no
+   * way to tell which query produced it. Turning this on in the environment
+   * puts the SQL in the platform log immediately before the error.
+   */
   log?: boolean;
 }
 
@@ -48,7 +55,10 @@ export function createDb(opts: CreateDbOptions = {}): DbHandle {
     },
   });
 
-  const db = drizzle(sql, { schema, logger: opts.log ?? false });
+  const db = drizzle(sql, {
+    schema,
+    logger: opts.log ?? process.env.DB_LOG_QUERIES === '1',
+  });
 
   return {
     db,
