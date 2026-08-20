@@ -32,40 +32,17 @@ fi
 mkdir -p /opt/hal
 chmod 700 /opt/hal
 
-write_env() {
-  umask 077
-  {
-    echo "KMS_PROVIDER=local"
-    echo "LLM_PROVIDER=gemini"
-    echo "GEMINI_MODEL=gemini-2.5-flash"
-    echo "STT_PROVIDER=deepgram"
-    echo "HAL_BOT_DISPLAY_NAME=Hal · AI for {{user}}"
-    echo "HAL_BOT_DISCLOSURE=Hi — I'm Hal, an AI assistant joining on {{user}}'s behalf. I'm transcribing this meeting. Reply '/hal stop' in chat to remove me."
-    echo "HAL_PULSE_SINK=halsink"
-    echo "HAL_AUDIO_DIR=/tmp/hal-audio"
-    echo "NODE_ENV=production"
-    echo "LOG_LEVEL=info"
-    aws ssm get-parameters-by-path --region "$REGION" --path "$SSM_PATH" --with-decryption --recursive \
-      --query 'Parameters[].{Name:Name,Value:Value}' --output json \
-      | jq -r '.[] | (.Name | split("/")[-1]) + "=" + .Value'
-  } > /opt/hal/.env
-  chmod 600 /opt/hal/.env
-}
+# Where hal-write-env looks up the region and SSM prefix. Kept out of the unit
+# file so the service definition never has to change when either moves.
+umask 077
+cat >/opt/hal/agent.conf <<EOF
+REGION=$REGION
+SSM_PATH=$SSM_PATH
+EOF
+chmod 600 /opt/hal/agent.conf
 
-for i in $(seq 1 30); do
-  if aws ssm get-parameter --region "$REGION" --name "$SSM_PATH/DATABASE_URL" --with-decryption >/dev/null 2>&1; then
-    write_env
-    if grep -qE '^(DATABASE_URL|HAL_LOCAL_KMS_KEY|GEMINI_API_KEY|DEEPGRAM_API_KEY|RESEND_API_KEY)=UNSET$' /opt/hal/.env \
-      || ! grep -q '^DATABASE_URL=.' /opt/hal/.env \
-      || ! grep -qE '^HAL_LOCAL_KMS_KEY=[0-9a-fA-F]{64}$' /opt/hal/.env; then
-      echo "SSM secrets still UNSET, retry $i"
-    else
-      break
-    fi
-  fi
-  sleep 10
-done
-
+# The checkout comes before the environment now: hal-write-env lives in the repo
+# so that a `git pull` updates it, which means the repo has to exist first.
 if [ ! -d /opt/hal/hal-meetings/.git ]; then
   git clone --branch "$GIT_BRANCH" "$GIT_REPO" /opt/hal/hal-meetings
 else
@@ -73,10 +50,10 @@ else
   git -C /opt/hal/hal-meetings checkout "$GIT_BRANCH"
   git -C /opt/hal/hal-meetings pull --ff-only origin "$GIT_BRANCH"
 fi
-
-cp /opt/hal/.env /opt/hal/hal-meetings/apps/agent/.env
-chmod 600 /opt/hal/hal-meetings/apps/agent/.env
 chown -R ubuntu:ubuntu /opt/hal/hal-meetings
+
+chmod 755 /opt/hal/hal-meetings/infra/aws/hal-write-env.sh
+/opt/hal/hal-meetings/infra/aws/hal-write-env.sh
 
 cat >/etc/systemd/system/hal-agent.service <<'EOF'
 [Unit]
@@ -88,6 +65,10 @@ After=docker.service network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/hal/hal-meetings
+# Re-derive the environment on every start. Without this the worker runs on
+# whatever /opt/hal/.env happened to contain at first boot, and a corrected SSM
+# parameter never reaches it.
+ExecStartPre=/opt/hal/hal-meetings/infra/aws/hal-write-env.sh
 ExecStart=/usr/bin/docker compose -f apps/agent/docker-compose.yml up -d --build
 ExecStop=/usr/bin/docker compose -f apps/agent/docker-compose.yml down
 TimeoutStartSec=0
