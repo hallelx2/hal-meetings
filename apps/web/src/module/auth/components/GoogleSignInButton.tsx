@@ -16,7 +16,12 @@ export function GoogleSignInButton({ next = '/app' }: { next?: string }) {
           setPending(true);
           setError(null);
           void authClient.signIn
-            .social({ provider: 'google', callbackURL: next })
+            .social({
+              provider: 'google',
+              callbackURL: next,
+              newUserCallbackURL: next,
+              errorCallbackURL: '/login',
+            })
             .catch(() => {
               setError('Google sign-in failed. Try again.');
               setPending(false);

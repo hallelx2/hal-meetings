@@ -8,7 +8,13 @@ const links = [
   { href: '#faq', label: 'FAQ' },
 ];
 
-export function SiteNav() {
+export function SiteNav({
+  signedIn = false,
+  email,
+}: {
+  signedIn?: boolean;
+  email?: string | null;
+}) {
   return (
     <header className="sticky top-0 z-50 bg-canvas-white brutal-border-2 border-t-0 border-l-0 border-r-0">
       <nav className="mx-auto max-w-[1280px] px-5 lg:px-8 h-[68px] flex items-center justify-between gap-6">
@@ -41,12 +47,21 @@ export function SiteNav() {
             </svg>
             Star
           </a>
-          <Link
-            href="/login"
-            className="inline-flex h-10 items-center px-5 bg-ink text-canvas-white text-[14px] font-bold uppercase tracking-adora hover:bg-ink-soft transition-colors"
-          >
-            Sign in
-          </Link>
+          {signedIn ? (
+            <Link
+              href="/app"
+              className="inline-flex h-10 items-center px-5 bg-ink text-canvas-white text-[14px] font-bold uppercase tracking-adora hover:bg-ink-soft transition-colors"
+            >
+              {email ? email.split('@')[0] : 'Open app'}
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex h-10 items-center px-5 bg-ink text-canvas-white text-[14px] font-bold uppercase tracking-adora hover:bg-ink-soft transition-colors"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </nav>
     </header>

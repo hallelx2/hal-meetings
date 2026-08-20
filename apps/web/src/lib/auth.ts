@@ -51,12 +51,20 @@ export function createAuth() {
       account: {
         create: {
           after: async (account) => {
-            await persistAccountTokens(db, account);
+            try {
+              await persistAccountTokens(db, account);
+            } catch (error) {
+              console.error('persist google tokens failed', error);
+            }
           },
         },
         update: {
           after: async (account) => {
-            await persistAccountTokens(db, account);
+            try {
+              await persistAccountTokens(db, account);
+            } catch (error) {
+              console.error('persist google tokens failed', error);
+            }
           },
         },
       },
