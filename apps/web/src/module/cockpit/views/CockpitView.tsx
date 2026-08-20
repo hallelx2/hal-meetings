@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { HalWordmark } from '@/components/shared/HalWordmark';
 import { SessionActions } from '@/module/cockpit/components/SessionActions';
 import { JoinMeetForm } from '@/module/cockpit/components/JoinMeetForm';
+import { ConnectCalendarButton } from '@/module/cockpit/components/ConnectCalendarButton';
 
 export function CockpitView(props: {
   email: string;
@@ -23,11 +24,24 @@ export function CockpitView(props: {
         <h1 className="text-[40px] leading-[0.95]">
           {props.name ? `Hi, ${props.name}` : 'You are signed in'}
         </h1>
-        <p className="text-[16px] text-ink/75 leading-relaxed">
-          {props.googleConnected
-            ? 'Google Calendar is connected. Tokens are stored encrypted and are not sent to this page.'
-            : 'Google Calendar is not connected. Sign in with Google again to grant Calendar read access.'}
-        </p>
+        {props.googleConnected ? (
+          <p className="text-[16px] text-ink/75 leading-relaxed">
+            Google Calendar is connected. Tokens are stored encrypted and are not sent to this
+            page.
+          </p>
+        ) : (
+          <div className="brutal-border-2 p-6 flex flex-col gap-4 bg-lush-green/30">
+            <p className="text-[12px] font-bold uppercase tracking-adora text-ink/50">
+              One more step
+            </p>
+            <p className="text-[16px] text-ink/80 leading-relaxed">
+              Connect Google Calendar so Hal knows which meetings to join. Read-only — Hal never
+              edits your calendar, and the tokens are envelope-encrypted before they touch the
+              database.
+            </p>
+            <ConnectCalendarButton next="/app" />
+          </div>
+        )}
         <JoinMeetForm />
         <SessionActions googleConnected={props.googleConnected} />
       </section>

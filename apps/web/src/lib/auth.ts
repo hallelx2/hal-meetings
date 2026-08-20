@@ -8,7 +8,7 @@ import {
   authUser,
   authVerification,
 } from '@hal/db/schema';
-import { GOOGLE_SCOPES, persistGoogleOauth } from '@/server/google-oauth';
+import { IDENTITY_SCOPES, persistGoogleOauth, resolveGrantedScopes } from '@/server/google-oauth';
 import { getDbHandle, getEnvelope, getRepos } from '@/server/hal';
 
 function requireEnv(name: string): string {
@@ -36,9 +36,14 @@ export function createAuth() {
       google: {
         clientId: requireEnv('GOOGLE_CLIENT_ID'),
         clientSecret: requireEnv('GOOGLE_CLIENT_SECRET'),
-        scope: [...GOOGLE_SCOPES],
+        // Sign-in establishes identity only. Calendar is requested later, by
+        // ConnectCalendarButton, which overrides these scopes per request.
+        scope: [...IDENTITY_SCOPES],
         accessType: 'offline',
-        prompt: 'select_account consent',
+        // No forced `consent` here — that belongs to the calendar step, which
+        // genuinely needs a refresh token. Forcing it on every sign-in just
+        // makes returning users re-approve something they already approved.
+        prompt: 'select_account',
       },
     },
     account: {
@@ -105,7 +110,7 @@ async function persistAccountTokens(
     accessToken: account.accessToken,
     refreshToken: account.refreshToken ?? null,
     expiresAt: account.accessTokenExpiresAt ?? null,
-    scopes: account.scope ? account.scope.split(/[,\s]+/).filter(Boolean) : [...GOOGLE_SCOPES],
+    scopes: resolveGrantedScopes(account.scope),
   });
 
   await db

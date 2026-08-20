@@ -9,13 +9,15 @@ import type {
   WorkspacesRepository,
 } from '@hal/db';
 
-export const GOOGLE_SCOPES = [
-  'openid',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-  'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/calendar.events.readonly',
-] as const;
+import { resolveGrantedScopes } from '@/lib/google-scopes';
+
+export {
+  CALENDAR_SCOPES,
+  GOOGLE_SCOPES,
+  IDENTITY_SCOPES,
+  hasCalendarAccess,
+  resolveGrantedScopes,
+} from '@/lib/google-scopes';
 
 export type GoogleOauthStore = {
   users: Pick<UsersRepository, 'findByEmail' | 'create'>;
@@ -110,7 +112,10 @@ export async function persistGoogleOauth(
     throw new Error('refresh token encrypt produced plaintext');
   }
 
-  const scopes = input.scopes.length > 0 ? input.scopes : [...GOOGLE_SCOPES];
+  // Same rule as the OAuth callback, same function: nothing from the provider
+  // means assume identity, never the full grant.
+  const scopes =
+    input.scopes.length > 0 ? input.scopes : resolveGrantedScopes(null);
 
   await input.store.oauthTokens.upsert({
     workspaceId: workspace.id,
