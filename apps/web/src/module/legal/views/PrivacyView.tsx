@@ -2,10 +2,16 @@ import Link from 'next/link';
 import { SiteNav } from '@/components/layout/SiteNav';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 
-export function PrivacyView() {
+export function PrivacyView({
+  signedIn = false,
+  email,
+}: {
+  signedIn?: boolean;
+  email?: string | null;
+}) {
   return (
     <main className="bg-canvas-white text-ink">
-      <SiteNav />
+      <SiteNav signedIn={signedIn} email={email} />
       <article className="mx-auto max-w-[720px] px-5 lg:px-8 py-16 flex flex-col gap-6">
         <p className="text-[12px] font-bold uppercase tracking-adora text-ink/50">Legal</p>
         <h1 className="text-[48px] leading-[0.95]">Privacy</h1>

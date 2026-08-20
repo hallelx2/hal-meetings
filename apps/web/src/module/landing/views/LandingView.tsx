@@ -14,10 +14,16 @@ import { LandingRoadmap } from '@/module/landing/components/LandingRoadmap';
 import { LandingFaq } from '@/module/landing/components/LandingFaq';
 import { LandingWaitlist } from '@/module/landing/components/LandingWaitlist';
 
-export function LandingView() {
+export function LandingView({
+  signedIn = false,
+  email,
+}: {
+  signedIn?: boolean;
+  email?: string | null;
+}) {
   return (
     <main className="bg-canvas-white text-ink overflow-x-hidden">
-      <SiteNav />
+      <SiteNav signedIn={signedIn} email={email} />
       <LandingHero />
       <LandingStack />
       <LandingAnatomy />
