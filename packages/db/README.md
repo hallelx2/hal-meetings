@@ -25,6 +25,14 @@ const repos = makeRepositories(db);
 const user = await repos.users.findByEmail('halleluyah@example.com');
 ```
 
+## Seeing the SQL
+
+Set `DB_LOG_QUERIES=1` (or pass `createDb({ log: true })`) to log every statement Drizzle emits, with its bound parameters.
+
+Reach for this when a caller reports a database error without the query. Better Auth is the usual case: it reports adapter failures as *"Better auth was unable to query your database"* and drops the statement, so a Postgres syntax error arrives with no way to tell which of its queries produced it. With this on, the SQL appears in the platform log immediately before the error.
+
+Parameters are logged, so treat the output as sensitive and turn it off again once you have what you need.
+
 ## Migrations
 
 ```bash
