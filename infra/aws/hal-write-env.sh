@@ -59,9 +59,12 @@ fetch_env() {
   } > "$TMP"
 }
 
-# Every variable the worker cannot start without. Checked before the file is
-# promoted, so a partial SSM read never becomes the live env.
+# Every variable the worker cannot start without. Checked before a file is
+# promoted, so a partial SSM read never becomes the live env — and checked again
+# against the existing env before we fall back to it, so "keep what is there"
+# cannot mean "keep something unusable".
 env_is_complete() {
+  local file="$1"
   local required=(
     KMS_PROVIDER
     LLM_PROVIDER
@@ -76,23 +79,27 @@ env_is_complete() {
     RESEND_API_KEY
     HAL_FROM_EMAIL
   )
+  if [ ! -s "$file" ]; then
+    echo "hal-write-env: $file is missing or empty" >&2
+    return 1
+  fi
   local key
   for key in "${required[@]}"; do
-    if ! grep -qE "^$key=.+" "$TMP"; then
-      echo "hal-write-env: $key missing or empty" >&2
+    if ! grep -qE "^$key=.+" "$file"; then
+      echo "hal-write-env: $file: $key missing or empty" >&2
       return 1
     fi
-    if grep -qE "^$key=UNSET$" "$TMP"; then
-      echo "hal-write-env: $key is still the UNSET placeholder" >&2
+    if grep -qE "^$key=UNSET$" "$file"; then
+      echo "hal-write-env: $file: $key is still the UNSET placeholder" >&2
       return 1
     fi
   done
-  if ! grep -qE '^HAL_LOCAL_KMS_KEY=[0-9a-fA-F]{64}$' "$TMP"; then
-    echo "hal-write-env: HAL_LOCAL_KMS_KEY is not 32 bytes of hex" >&2
+  if ! grep -qE '^HAL_LOCAL_KMS_KEY=[0-9a-fA-F]{64}$' "$file"; then
+    echo "hal-write-env: $file: HAL_LOCAL_KMS_KEY is not 32 bytes of hex" >&2
     return 1
   fi
-  if grep -qE '^DATABASE_URL=.*-pooler\.' "$TMP"; then
-    echo "hal-write-env: DATABASE_URL still points at the Neon pooler" >&2
+  if grep -qE '^DATABASE_URL=.*-pooler\.' "$file"; then
+    echo "hal-write-env: $file: DATABASE_URL still points at the Neon pooler" >&2
     return 1
   fi
   return 0
@@ -109,7 +116,7 @@ if ! [[ "$attempts" =~ ^[0-9]+$ ]]; then
   attempts=0
 fi
 for i in $(seq 1 "$attempts"); do
-  if fetch_env && env_is_complete; then
+  if fetch_env && env_is_complete "$TMP"; then
     mv "$TMP" "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     trap - EXIT
@@ -124,9 +131,12 @@ for i in $(seq 1 "$attempts"); do
   sleep 10
 done
 
-# Never leave the host worse than we found it: if a usable env already exists,
-# start on it rather than refusing to boot.
-if [ -s "$ENV_FILE" ]; then
+# Never leave the host worse than we found it: if SSM is unreachable but the
+# env already on disk is complete, start on it rather than refusing to boot.
+# It has to pass the same checks — falling back to an env that is itself
+# truncated, still on UNSET placeholders, or pointed at the pooler would
+# reintroduce exactly the silent misconfiguration this script exists to stop.
+if env_is_complete "$ENV_FILE"; then
   echo "hal-write-env: giving up on SSM; keeping the existing $ENV_FILE" >&2
   exit 0
 fi
