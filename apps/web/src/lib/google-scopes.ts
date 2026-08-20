@@ -28,11 +28,27 @@ export const CALENDAR_SCOPES = [
 ] as const;
 
 /**
- * The full grant Hal wants once Calendar is connected. Used as the fallback
- * when a provider response omits `scope`, so a token is never recorded as
- * carrying less than it does.
+ * The full grant the explicit Calendar connection flow requests.
+ *
+ * Deliberately NOT the fallback for a missing `scope` — see
+ * {@link resolveGrantedScopes}.
  */
 export const GOOGLE_SCOPES = [...IDENTITY_SCOPES, ...CALENDAR_SCOPES] as const;
+
+/**
+ * Turn a provider's raw `scope` string into the list we store.
+ *
+ * One function because there is one rule, and the rule is easy to get
+ * backwards: when Google tells us nothing, assume the *least* access, not the
+ * most. Recording calendar access we do not have makes `hasCalendarAccess()`
+ * lie, hides the connect prompt, and leaves the user with a sync that fails
+ * silently and no control that fixes it. Under-claiming costs one extra click;
+ * over-claiming strands them.
+ */
+export function resolveGrantedScopes(raw: string | null | undefined): string[] {
+  const parsed = (raw ?? '').split(/[,\s]+/).filter(Boolean);
+  return parsed.length > 0 ? parsed : [...IDENTITY_SCOPES];
+}
 
 /**
  * Is Calendar actually connected?

@@ -8,7 +8,7 @@ import {
   authUser,
   authVerification,
 } from '@hal/db/schema';
-import { GOOGLE_SCOPES, IDENTITY_SCOPES, persistGoogleOauth } from '@/server/google-oauth';
+import { IDENTITY_SCOPES, persistGoogleOauth, resolveGrantedScopes } from '@/server/google-oauth';
 import { getDbHandle, getEnvelope, getRepos } from '@/server/hal';
 
 function requireEnv(name: string): string {
@@ -110,7 +110,7 @@ async function persistAccountTokens(
     accessToken: account.accessToken,
     refreshToken: account.refreshToken ?? null,
     expiresAt: account.accessTokenExpiresAt ?? null,
-    scopes: account.scope ? account.scope.split(/[,\s]+/).filter(Boolean) : [...GOOGLE_SCOPES],
+    scopes: resolveGrantedScopes(account.scope),
   });
 
   await db

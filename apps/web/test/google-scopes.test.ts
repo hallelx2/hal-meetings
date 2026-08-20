@@ -4,6 +4,7 @@ import {
   GOOGLE_SCOPES,
   IDENTITY_SCOPES,
   hasCalendarAccess,
+  resolveGrantedScopes,
 } from '../src/lib/google-scopes';
 
 describe('scope split', () => {
@@ -28,6 +29,42 @@ describe('scope split', () => {
   it('composes the full grant from both halves with no duplicates', () => {
     expect(GOOGLE_SCOPES).toEqual([...IDENTITY_SCOPES, ...CALENDAR_SCOPES]);
     expect(new Set(GOOGLE_SCOPES).size).toBe(GOOGLE_SCOPES.length);
+  });
+});
+
+describe('resolveGrantedScopes', () => {
+  // The rule that is easy to get backwards, and was: when the provider tells us
+  // nothing, assume the least access. Recording calendar we do not have hides
+  // the connect prompt and strands the user.
+  it('falls back to identity, never the full grant, when scope is missing', () => {
+    for (const raw of [null, undefined, '', '   ']) {
+      const resolved = resolveGrantedScopes(raw);
+      expect(resolved).toEqual([...IDENTITY_SCOPES]);
+      expect(hasCalendarAccess(resolved)).toBe(false);
+    }
+  });
+
+  it('splits on spaces and commas', () => {
+    expect(resolveGrantedScopes('openid email profile')).toEqual([
+      'openid',
+      'email',
+      'profile',
+    ]);
+    expect(resolveGrantedScopes('openid,email,profile')).toEqual([
+      'openid',
+      'email',
+      'profile',
+    ]);
+  });
+
+  it('preserves a real calendar grant', () => {
+    expect(hasCalendarAccess(resolveGrantedScopes(GOOGLE_SCOPES.join(' ')))).toBe(true);
+  });
+
+  it('does not invent calendar access from an identity-only grant', () => {
+    // The exact regression: an identity-only sign-in whose account row carries
+    // no scope must not come back looking calendar-connected.
+    expect(hasCalendarAccess(resolveGrantedScopes(IDENTITY_SCOPES.join(' ')))).toBe(false);
   });
 });
 

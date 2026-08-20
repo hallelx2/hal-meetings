@@ -9,13 +9,14 @@ import type {
   WorkspacesRepository,
 } from '@hal/db';
 
-import { IDENTITY_SCOPES } from '@/lib/google-scopes';
+import { resolveGrantedScopes } from '@/lib/google-scopes';
 
 export {
   CALENDAR_SCOPES,
   GOOGLE_SCOPES,
   IDENTITY_SCOPES,
   hasCalendarAccess,
+  resolveGrantedScopes,
 } from '@/lib/google-scopes';
 
 export type GoogleOauthStore = {
@@ -111,11 +112,10 @@ export async function persistGoogleOauth(
     throw new Error('refresh token encrypt produced plaintext');
   }
 
-  // Fall back to identity, never to the full grant. A provider response that
-  // omits `scope` must not be recorded as carrying calendar access it may not
-  // have — that would make hasCalendarAccess() lie, hide the connect prompt,
-  // and leave the sync failing with no way for the user to fix it.
-  const scopes = input.scopes.length > 0 ? input.scopes : [...IDENTITY_SCOPES];
+  // Same rule as the OAuth callback, same function: nothing from the provider
+  // means assume identity, never the full grant.
+  const scopes =
+    input.scopes.length > 0 ? input.scopes : resolveGrantedScopes(null);
 
   await input.store.oauthTokens.upsert({
     workspaceId: workspace.id,
