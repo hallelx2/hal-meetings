@@ -72,6 +72,10 @@
     overscroll-behavior: contain;
   }
   .brutal-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+  /* Styling the scrollbar at all makes Chromium draw its stepper arrows, which
+     land as a stray glyph below the thumb. There is no design in this system
+     they belong to. */
+  .brutal-scroll::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
   .brutal-scroll::-webkit-scrollbar-track {
     background: transparent;
     border-left: 1.5px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
@@ -79,8 +83,11 @@
   .brutal-scroll::-webkit-scrollbar-thumb {
     background: var(--color-ink);
     /* The inset is the gap; a square thumb on a square track needs the air. */
-    border: 3px solid var(--color-canvas-white);
+    border: 2px solid var(--color-canvas-white);
     border-radius: 0;
+    /* A long pane gives the thumb a proportional height of a few pixels, which
+       reads as a tick mark rather than as something you can grab. */
+    min-height: 32px;
   }
   .brutal-scroll::-webkit-scrollbar-thumb:hover { background: var(--color-ink-soft); }
   .brutal-scroll::-webkit-scrollbar-corner { background: transparent; }
