@@ -223,3 +223,49 @@ describe('startOfMonth', () => {
     expect(first.getMonth()).toBe(7);
   });
 });
+
+describe('anchor parsing (mirrors the page helper)', () => {
+  // The page's parseAnchor is not exported, so the rule it encodes is pinned
+  // here: a date string must round-trip, because JS normalises rather than
+  // rejecting an impossible day.
+  function parseAnchor(raw: string | undefined, fallback: Date): Date {
+    if (!raw) return fallback;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+    if (!match) return fallback;
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const parsed = new Date(year, month, day);
+    const roundTrips =
+      parsed.getFullYear() === year && parsed.getMonth() === month && parsed.getDate() === day;
+    return roundTrips ? parsed : fallback;
+  }
+
+  const fallback = new Date(2026, 7, 19);
+
+  it('accepts a real date, at local midnight', () => {
+    const parsed = parseAnchor('2026-03-09', fallback);
+    expect(parsed.getMonth()).toBe(2);
+    expect(parsed.getDate()).toBe(9);
+    expect(parsed.getHours()).toBe(0);
+  });
+
+  it('rejects an impossible day instead of rolling it forward', () => {
+    // new Date(2026, 1, 31) is 3 March, not invalid — getTime() alone would
+    // accept it and silently show the wrong month.
+    expect(parseAnchor('2026-02-31', fallback)).toEqual(fallback);
+    expect(parseAnchor('2026-04-31', fallback)).toEqual(fallback);
+    expect(parseAnchor('2026-13-01', fallback)).toEqual(fallback);
+  });
+
+  it('accepts 29 February in a leap year and rejects it otherwise', () => {
+    expect(parseAnchor('2028-02-29', fallback).getDate()).toBe(29);
+    expect(parseAnchor('2026-02-29', fallback)).toEqual(fallback);
+  });
+
+  it('falls back on junk and on nothing', () => {
+    expect(parseAnchor(undefined, fallback)).toEqual(fallback);
+    expect(parseAnchor('not-a-date', fallback)).toEqual(fallback);
+    expect(parseAnchor('2026-8-1', fallback)).toEqual(fallback);
+  });
+});

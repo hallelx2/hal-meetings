@@ -108,15 +108,20 @@ export function CalendarGrid({
         ) : (
           withEntries.map((cell) => (
             <div key={cell.date.toISOString()} className="flex flex-col gap-2">
+              {/* Out-of-period days are marked here too, not only on the desktop
+                  grid. They are visible in the agenda but excluded from the stat
+                  row, and an unexplained mismatch between the two reads as a
+                  bug rather than as a deliberate boundary. */}
               <p
                 className={cn(
                   'text-[12px] font-bold uppercase tracking-adora',
-                  cell.isToday ? 'text-ink' : 'text-ink/50',
+                  cell.isToday ? 'text-ink' : cell.inPeriod ? 'text-ink/50' : 'text-ink/35',
                 )}
               >
                 {DAY_NAMES[(cell.date.getDay() + 6) % 7]} {cell.date.getDate()}{' '}
                 {cell.date.toLocaleDateString(undefined, { month: 'short' })}
                 {cell.isToday ? ' · Today' : ''}
+                {!cell.inPeriod && !cell.isToday ? ' · Outside this month' : ''}
               </p>
               <div className="flex flex-col gap-1.5">
                 {cell.entries.map((entry) => (
