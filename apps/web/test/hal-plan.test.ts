@@ -217,6 +217,25 @@ describe('halPlan — meetings that have already gone past', () => {
     );
   });
 
+  it('keeps only the stages the stalled status actually evidences', () => {
+    // 'in-progress' is written after join and disclose, so those two happened.
+    // 'joining' evidences nothing beyond an attempt. Neither leaves anything
+    // "pending" — nothing is going to advance it now.
+    const midRun = halPlan(entry({ ...past, status: 'in-progress' }), NOW);
+    expect(midRun.stages.map((s) => s.state)).toEqual([
+      'done',
+      'done',
+      'blocked',
+      'blocked',
+      'blocked',
+      'blocked',
+      'blocked',
+    ]);
+
+    const neverIn = halPlan(entry({ ...past, status: 'joining' }), NOW);
+    expect(neverIn.stages.every((s) => s.state === 'blocked')).toBe(true);
+  });
+
   it('offers no retry on a failed run once the meeting is over', () => {
     const over = halPlan(entry({ ...past, status: 'failed', policy: 'auto' }), NOW);
     expect(over.sendable).toBe(false);

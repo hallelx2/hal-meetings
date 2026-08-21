@@ -152,25 +152,34 @@ export function buildGrid(
 }
 
 /** Anything happening right now. Instant comparison, so zone-independent. */
+/**
+ * How long an event with no end time is treated as running.
+ *
+ * `isLive` and `hasEnded` must partition the timeline with no gap and no
+ * overlap, so they read this from one place. Written twice, a drift makes a
+ * meeting either both live and over, or neither.
+ */
+const ENDLESS_MEETING_WINDOW_MS = 60 * 60 * 1000;
+
 export function isLive(entry: CalendarEntry, now: Date): boolean {
   if (entry.end && entry.end.getTime() <= now.getTime()) return false;
   const sinceStart = now.getTime() - entry.start.getTime();
   if (sinceStart < 0) return false;
   // With no end time, an hour is the window — otherwise a meeting stays pinned
   // as "live" for the rest of the day.
-  return entry.end ? true : sinceStart < 60 * 60 * 1000;
+  return entry.end ? true : sinceStart < ENDLESS_MEETING_WINDOW_MS;
 }
 
 /**
  * Is this meeting over?
  *
- * The same assumption `isLive` makes about an endless meeting — an hour — so
- * the two can never disagree about a meeting that is neither live nor ended.
- * A meeting that has not started yet is not ended.
+ * The exact inverse of `isLive` for a meeting that has started, off the same
+ * window constant, so the two can never disagree. A meeting that has not
+ * started yet is not ended.
  */
 export function hasEnded(entry: CalendarEntry, now: Date): boolean {
   if (entry.end) return entry.end.getTime() <= now.getTime();
-  return now.getTime() - entry.start.getTime() >= 60 * 60 * 1000;
+  return now.getTime() - entry.start.getTime() >= ENDLESS_MEETING_WINDOW_MS;
 }
 
 export type PeriodStats = {

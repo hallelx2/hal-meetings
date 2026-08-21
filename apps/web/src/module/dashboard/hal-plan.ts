@@ -129,15 +129,20 @@ function blockedReason(entry: CalendarEntry): string | null {
  * Left alone, `status` sticks at 'joining' or 'in-progress' forever and the
  * panel keeps announcing that Hal is in a call that finished days ago. Saying
  * nothing was reported is the only claim that is actually supported.
+ *
+ * `confirmed` is how many stages the status still evidences: 'in-progress' is
+ * only ever written after the agent has joined and disclosed, so those two
+ * genuinely happened. Everything from there on is unknown, which is not the
+ * same as pending — nothing is going to advance it now.
  */
-function stalled(states: StageState[]): HalPlan {
+function stalled(confirmed: number): HalPlan {
   return {
     posture: 'stalled',
     headline: 'Hal never reported back from this meeting.',
     reason:
       'The meeting has ended while the run was still mid-flight, so there may be no recording and no summary.',
     sendable: false,
-    stages: withStates(states),
+    stages: withStates(STAGES.map((_, index) => (index < confirmed ? 'done' : 'blocked'))),
   };
 }
 
@@ -182,7 +187,8 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
       };
 
     case 'in-progress':
-      if (ended) return stalled(['done', 'done', 'blocked', 'blocked', 'blocked', 'blocked', 'blocked']);
+      // 'in-progress' is only written once the agent has joined and disclosed.
+      if (ended) return stalled(2);
       return {
         posture: 'live',
         headline: 'Hal is in this meeting right now.',
@@ -192,7 +198,8 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
       };
 
     case 'joining':
-      if (ended) return stalled(every('blocked'));
+      // 'joining' evidences nothing beyond an attempt.
+      if (ended) return stalled(0);
       return {
         posture: 'joining',
         headline: 'Hal is joining — admit the guest named Hal in the lobby.',
