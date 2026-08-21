@@ -6,13 +6,19 @@ import {
   CalendarReauthRequiredError,
   syncCalendarWindow,
 } from '@/server/google-calendar';
-import { visibleRange, type CalendarEntry, type CalendarView } from '@/module/dashboard/calendar';
+import { cellCount, firstCellKey, type CalendarEntry, type CalendarView } from '@/module/dashboard/calendar';
+import {
+  DEFAULT_TIME_ZONE,
+  addDaysToKey,
+  startOfDayInstant,
+  type DayKey,
+} from '@/module/dashboard/zone';
 
 export type CalendarState =
   | { kind: 'not-connected' }
   | { kind: 'reauth-required'; message: string }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; entries: CalendarEntry[] };
+  | { kind: 'ready'; entries: CalendarEntry[]; timeZone: string };
 
 /**
  * Everything the dashboard needs for the period on screen.
@@ -28,8 +34,9 @@ export type CalendarState =
  */
 export async function loadDashboardCalendar(
   userId: string,
-  anchor: Date,
+  anchor: DayKey,
   view: CalendarView,
+  fallbackZone: string = DEFAULT_TIME_ZONE,
 ): Promise<CalendarState> {
   const repos = getRepos();
   const user = await repos.users.findById(userId);
@@ -38,10 +45,17 @@ export async function loadDashboardCalendar(
   const workspace = await repos.workspaces.findForUser(userId);
   if (!workspace) return { kind: 'not-connected' };
 
-  const { from, to } = visibleRange(anchor, view);
+  // The window has to be resolved in *some* zone before the first fetch, and
+  // the calendar's own zone is only known after it. Widening by a day either
+  // side covers the largest possible offset, so nothing visible is missed
+  // whichever zone turns out to apply.
+  const first = firstCellKey(anchor, view);
+  const last = addDaysToKey(first, cellCount(view));
+  const from = startOfDayInstant(addDaysToKey(first, -1), fallbackZone);
+  const to = startOfDayInstant(addDaysToKey(last, 1), fallbackZone);
 
   try {
-    const { events } = await syncCalendarWindow(
+    const { events, timeZone } = await syncCalendarWindow(
       { store: repos, envelope: getEnvelope(), user, workspaceId: workspace.id },
       { from, to },
     );
@@ -82,7 +96,7 @@ export async function loadDashboardCalendar(
       };
     });
 
-    return { kind: 'ready', entries };
+    return { kind: 'ready', entries, timeZone: timeZone ?? fallbackZone };
   } catch (error) {
     if (error instanceof CalendarNotConnectedError) return { kind: 'not-connected' };
     if (error instanceof CalendarReauthRequiredError) {

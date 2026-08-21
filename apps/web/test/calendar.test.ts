@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'bun:test';
 import {
-  addMonths,
-  durationMinutes,
-  formatDuration,
+  addMonthsToKey,
   buildGrid,
+  cellCount,
+  durationMinutes,
+  firstCellKey,
+  formatDuration,
   isLive,
   periodStats,
-  startOfMonth,
-  startOfWeek,
-  visibleRange,
+  startOfMonthKey,
+  startOfWeekKey,
   type CalendarEntry,
 } from '../src/module/dashboard/calendar';
+
+const LAGOS = 'Africa/Lagos'; // UTC+1
+const UTC = 'UTC';
 
 function entry(partial: Partial<CalendarEntry> & { start: Date }): CalendarEntry {
   return {
@@ -24,145 +28,154 @@ function entry(partial: Partial<CalendarEntry> & { start: Date }): CalendarEntry
   };
 }
 
-describe('startOfWeek', () => {
+describe('startOfWeekKey', () => {
   it('is Monday-first', () => {
-    expect(startOfWeek(new Date(2026, 7, 19, 12)).getDate()).toBe(17);
+    expect(startOfWeekKey('2026-08-19')).toBe('2026-08-17');
   });
 
   it('treats Sunday as the end of the week, not the start', () => {
-    expect(startOfWeek(new Date(2026, 7, 23, 23, 30)).getDate()).toBe(17);
+    expect(startOfWeekKey('2026-08-23')).toBe('2026-08-17');
   });
 
   it('crosses a month boundary', () => {
-    const start = startOfWeek(new Date(2026, 8, 1, 9));
-    expect(start.getMonth()).toBe(7);
-    expect(start.getDate()).toBe(31);
+    expect(startOfWeekKey('2026-09-01')).toBe('2026-08-31');
   });
 });
 
-describe('addMonths', () => {
+describe('addMonthsToKey', () => {
   it('does not overflow from a long month into the month after next', () => {
-    // The classic bug: 31 Aug + 1 month naively becomes 31 Sep, which JS
-    // silently rolls into October.
-    expect(addMonths(new Date(2026, 7, 31), 1).getMonth()).toBe(8);
-    expect(addMonths(new Date(2026, 0, 31), 1).getMonth()).toBe(1);
+    // 31 Aug + 1 month naively becomes 31 Sep, which JS rolls into October.
+    expect(addMonthsToKey('2026-08-31', 1)).toBe('2026-09-01');
+    expect(addMonthsToKey('2026-01-31', 1)).toBe('2026-02-01');
   });
 
   it('walks backwards across a year boundary', () => {
-    const back = addMonths(new Date(2026, 0, 15), -1);
-    expect(back.getFullYear()).toBe(2025);
-    expect(back.getMonth()).toBe(11);
-  });
-
-  it('always lands on the first of the month at midnight', () => {
-    const next = addMonths(new Date(2026, 7, 19, 15, 45), 1);
-    expect(next.getDate()).toBe(1);
-    expect(next.getHours()).toBe(0);
+    expect(addMonthsToKey('2026-01-15', -1)).toBe('2025-12-01');
   });
 });
 
-describe('visibleRange', () => {
-  it('covers six whole weeks for a month, starting on a Monday', () => {
-    const { from, to } = visibleRange(new Date(2026, 7, 19), 'month');
-    expect(from.getDay()).toBe(1);
-    expect(Math.round((to.getTime() - from.getTime()) / 86_400_000)).toBe(42);
-  });
-
+describe('firstCellKey', () => {
   it('starts before the 1st when the month does not begin on a Monday', () => {
     // 1 Aug 2026 is a Saturday, so the grid must reach back into July or the
     // first row renders empty and the events on those days vanish.
-    const { from } = visibleRange(new Date(2026, 7, 15), 'month');
-    expect(from.getMonth()).toBe(6);
-    expect(from.getDate()).toBe(27);
+    expect(firstCellKey('2026-08-15', 'month')).toBe('2026-07-27');
   });
 
-  it('covers exactly seven days for a week', () => {
-    const { from, to } = visibleRange(new Date(2026, 7, 19), 'week');
-    expect(Math.round((to.getTime() - from.getTime()) / 86_400_000)).toBe(7);
+  it('is the Monday of the week for a week view', () => {
+    expect(firstCellKey('2026-08-19', 'week')).toBe('2026-08-17');
+  });
+});
+
+describe('cellCount', () => {
+  it('is six rows for a month and one for a week', () => {
+    expect(cellCount('month')).toBe(42);
+    expect(cellCount('week')).toBe(7);
   });
 });
 
 describe('buildGrid', () => {
-  const now = new Date(2026, 7, 19, 12); // Wed 19 Aug 2026
+  const today = '2026-08-19';
 
   it('returns 42 cells for a month and 7 for a week', () => {
-    expect(buildGrid(now, now, 'month', [])).toHaveLength(42);
-    expect(buildGrid(now, now, 'week', [])).toHaveLength(7);
+    expect(buildGrid(today, today, 'month', [], UTC)).toHaveLength(42);
+    expect(buildGrid(today, today, 'week', [], UTC)).toHaveLength(7);
   });
 
   it('marks leading and trailing days as outside the period', () => {
-    const cells = buildGrid(now, now, 'month', []);
+    const cells = buildGrid(today, today, 'month', [], UTC);
     expect(cells[0]!.inPeriod).toBe(false); // 27 Jul
-    expect(cells.filter((c) => c.inPeriod)).toHaveLength(31); // August
+    expect(cells.filter((c) => c.inPeriod)).toHaveLength(31);
   });
 
   it('marks today exactly once', () => {
-    const cells = buildGrid(now, now, 'month', []);
+    const cells = buildGrid(today, today, 'month', [], UTC);
     expect(cells.filter((c) => c.isToday)).toHaveLength(1);
-    expect(cells.find((c) => c.isToday)?.date.getDate()).toBe(19);
+    expect(cells.find((c) => c.isToday)?.dayOfMonth).toBe(19);
+  });
+
+  it('buckets an event by its day in the display zone, not the runtime zone', () => {
+    // The production bug. 2026-08-19T23:30Z is the 19th in UTC and already the
+    // 20th in Lagos. A grid that asked `getDate()` would file it under whichever
+    // zone the process happened to be in.
+    const lateEvening = entry({ id: 'late', start: new Date('2026-08-19T23:30:00Z') });
+
+    const utcCells = buildGrid(today, today, 'month', [lateEvening], UTC);
+    expect(utcCells.find((c) => c.entries.some((e) => e.id === 'late'))?.dayOfMonth).toBe(19);
+
+    const lagosCells = buildGrid(today, today, 'month', [lateEvening], LAGOS);
+    expect(lagosCells.find((c) => c.entries.some((e) => e.id === 'late'))?.dayOfMonth).toBe(20);
+  });
+
+  it('keeps a just-after-midnight event on its own local day', () => {
+    // 00:30 in Lagos is 23:30 UTC the day before.
+    const justAfterMidnight = entry({ id: 'early', start: new Date('2026-08-20T00:30:00+01:00') });
+    const cells = buildGrid(today, today, 'month', [justAfterMidnight], LAGOS);
+    expect(cells.find((c) => c.entries.some((e) => e.id === 'early'))?.dayOfMonth).toBe(20);
   });
 
   it('still shows events on the leading days', () => {
-    // These belong to July but are on screen, so dropping them would leave a
-    // visibly empty first row that the user knows is wrong.
-    const cells = buildGrid(now, now, 'month', [
-      entry({ id: 'jul', start: new Date(2026, 6, 28, 9) }),
-    ]);
+    const cells = buildGrid(today, today, 'month', [
+      entry({ id: 'jul', start: new Date('2026-07-28T09:00:00Z') }),
+    ], UTC);
     expect(cells[1]!.entries.map((e) => e.id)).toEqual(['jul']);
   });
 
   it('orders a day by start time', () => {
-    const cells = buildGrid(now, now, 'week', [
-      entry({ id: 'late', start: new Date(2026, 7, 19, 16) }),
-      entry({ id: 'early', start: new Date(2026, 7, 19, 9) }),
-    ]);
+    const cells = buildGrid(today, today, 'week', [
+      entry({ id: 'late', start: new Date('2026-08-19T16:00:00Z') }),
+      entry({ id: 'early', start: new Date('2026-08-19T09:00:00Z') }),
+    ], UTC);
     expect(cells[2]!.entries.map((e) => e.id)).toEqual(['early', 'late']);
   });
 
   it('drops entries outside the grid rather than clamping them', () => {
-    const cells = buildGrid(now, now, 'month', [
-      entry({ id: 'far', start: new Date(2026, 2, 3, 9) }),
-    ]);
+    const cells = buildGrid(today, today, 'month', [
+      entry({ id: 'far', start: new Date('2026-03-03T09:00:00Z') }),
+    ], UTC);
     expect(cells.flatMap((c) => c.entries)).toHaveLength(0);
   });
 
-  it('handles February in a leap year', () => {
-    const feb = new Date(2028, 1, 10, 12);
-    const cells = buildGrid(feb, feb, 'month', []);
-    expect(cells.filter((c) => c.inPeriod)).toHaveLength(29);
-  });
-
-  it('handles February in a non-leap year', () => {
-    const feb = new Date(2026, 1, 10, 12);
-    const cells = buildGrid(feb, feb, 'month', []);
-    expect(cells.filter((c) => c.inPeriod)).toHaveLength(28);
+  it('handles February in leap and non-leap years', () => {
+    expect(
+      buildGrid('2028-02-10', '2028-02-10', 'month', [], UTC).filter((c) => c.inPeriod),
+    ).toHaveLength(29);
+    expect(
+      buildGrid('2026-02-10', '2026-02-10', 'month', [], UTC).filter((c) => c.inPeriod),
+    ).toHaveLength(28);
   });
 
   it('keeps 42 cells even for a month that needs only five rows', () => {
-    // A fixed height stops the page jumping as you page between months.
-    const feb = new Date(2026, 1, 10, 12);
-    expect(buildGrid(feb, feb, 'month', [])).toHaveLength(42);
+    expect(buildGrid('2026-02-10', '2026-02-10', 'month', [], UTC)).toHaveLength(42);
   });
 });
 
 describe('periodStats', () => {
-  const now = new Date(2026, 7, 19, 12);
+  const today = '2026-08-19';
 
   it('counts only what is inside the period', () => {
-    // A July event visible in the leading row must not inflate August's totals.
-    const cells = buildGrid(now, now, 'month', [
-      entry({ id: 'jul', start: new Date(2026, 6, 28, 9) }),
-      entry({ id: 'aug', start: new Date(2026, 7, 19, 9) }),
-    ]);
+    const cells = buildGrid(today, today, 'month', [
+      entry({ id: 'jul', start: new Date('2026-07-28T09:00:00Z') }),
+      entry({ id: 'aug', start: new Date('2026-08-19T09:00:00Z') }),
+    ], UTC);
     expect(periodStats(cells).total).toBe(1);
   });
 
   it('separates joinable from unsupported, and ignores events with no platform', () => {
-    const cells = buildGrid(now, now, 'month', [
-      entry({ id: 'meet', start: new Date(2026, 7, 18, 9) }),
-      entry({ id: 'zoom', start: new Date(2026, 7, 19, 9), platform: 'zoom', joinable: false }),
-      entry({ id: 'none', start: new Date(2026, 7, 20, 9), platform: null, joinable: false }),
-    ]);
+    const cells = buildGrid(today, today, 'month', [
+      entry({ id: 'meet', start: new Date('2026-08-18T09:00:00Z') }),
+      entry({
+        id: 'zoom',
+        start: new Date('2026-08-19T09:00:00Z'),
+        platform: 'zoom',
+        joinable: false,
+      }),
+      entry({
+        id: 'none',
+        start: new Date('2026-08-20T09:00:00Z'),
+        platform: null,
+        joinable: false,
+      }),
+    ], UTC);
     const stats = periodStats(cells);
     expect(stats.total).toBe(3);
     expect(stats.joinable).toBe(1);
@@ -170,19 +183,27 @@ describe('periodStats', () => {
   });
 
   it('sums hours and skips events with no end time', () => {
-    const cells = buildGrid(now, now, 'month', [
+    const cells = buildGrid(today, today, 'month', [
       entry({
         id: 'a',
-        start: new Date(2026, 7, 18, 9),
-        end: new Date(2026, 7, 18, 10, 30),
+        start: new Date('2026-08-18T09:00:00Z'),
+        end: new Date('2026-08-18T10:30:00Z'),
       }),
-      entry({ id: 'b', start: new Date(2026, 7, 19, 9), end: null }),
-    ]);
+      entry({ id: 'b', start: new Date('2026-08-19T09:00:00Z'), end: null }),
+    ], UTC);
     expect(periodStats(cells).hours).toBe(1.5);
   });
 
+  it('agrees with the grid about which days count, in any zone', () => {
+    // 2026-08-31T23:30Z is August in UTC and September in Lagos. The stats and
+    // the grid must not disagree about that.
+    const boundary = entry({ id: 'edge', start: new Date('2026-08-31T23:30:00Z') });
+    expect(periodStats(buildGrid('2026-08-15', '2026-08-15', 'month', [boundary], UTC)).total).toBe(1);
+    expect(periodStats(buildGrid('2026-08-15', '2026-08-15', 'month', [boundary], LAGOS)).total).toBe(0);
+  });
+
   it('is all zeroes for an empty period', () => {
-    expect(periodStats(buildGrid(now, now, 'month', []))).toEqual({
+    expect(periodStats(buildGrid('2026-08-19', '2026-08-19', 'month', [], UTC))).toEqual({
       total: 0,
       joinable: 0,
       unsupported: 0,
@@ -192,91 +213,55 @@ describe('periodStats', () => {
 });
 
 describe('isLive', () => {
-  const now = new Date(2026, 7, 19, 12);
+  const now = new Date('2026-08-19T12:00:00Z');
 
   it('is true between start and end', () => {
     expect(
-      isLive(entry({ start: new Date(2026, 7, 19, 11, 30), end: new Date(2026, 7, 19, 12, 30) }), now),
+      isLive(
+        entry({
+          start: new Date('2026-08-19T11:30:00Z'),
+          end: new Date('2026-08-19T12:30:00Z'),
+        }),
+        now,
+      ),
     ).toBe(true);
   });
 
   it('is not live at the exact moment it ends', () => {
     expect(
-      isLive(entry({ start: new Date(2026, 7, 19, 11), end: new Date(2026, 7, 19, 12) }), now),
+      isLive(
+        entry({ start: new Date('2026-08-19T11:00:00Z'), end: new Date('2026-08-19T12:00:00Z') }),
+        now,
+      ),
     ).toBe(false);
   });
 
   it('is live at the exact moment it starts', () => {
     expect(
-      isLive(entry({ start: new Date(2026, 7, 19, 12), end: new Date(2026, 7, 19, 13) }), now),
+      isLive(
+        entry({ start: new Date('2026-08-19T12:00:00Z'), end: new Date('2026-08-19T13:00:00Z') }),
+        now,
+      ),
     ).toBe(true);
   });
 
   it('gives an endless meeting an hour, not the rest of the day', () => {
-    expect(isLive(entry({ start: new Date(2026, 7, 19, 11, 30) }), now)).toBe(true);
-    expect(isLive(entry({ start: new Date(2026, 7, 19, 9) }), now)).toBe(false);
+    expect(isLive(entry({ start: new Date('2026-08-19T11:30:00Z') }), now)).toBe(true);
+    expect(isLive(entry({ start: new Date('2026-08-19T09:00:00Z') }), now)).toBe(false);
   });
 });
 
-describe('startOfMonth', () => {
-  it('is the first, whatever the time of day', () => {
-    const first = startOfMonth(new Date(2026, 7, 19, 23, 59));
-    expect(first.getDate()).toBe(1);
-    expect(first.getMonth()).toBe(7);
-  });
-});
-
-describe('anchor parsing (mirrors the page helper)', () => {
-  // The page's parseAnchor is not exported, so the rule it encodes is pinned
-  // here: a date string must round-trip, because JS normalises rather than
-  // rejecting an impossible day.
-  function parseAnchor(raw: string | undefined, fallback: Date): Date {
-    if (!raw) return fallback;
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
-    if (!match) return fallback;
-    const year = Number(match[1]);
-    const month = Number(match[2]) - 1;
-    const day = Number(match[3]);
-    const parsed = new Date(year, month, day);
-    const roundTrips =
-      parsed.getFullYear() === year && parsed.getMonth() === month && parsed.getDate() === day;
-    return roundTrips ? parsed : fallback;
-  }
-
-  const fallback = new Date(2026, 7, 19);
-
-  it('accepts a real date, at local midnight', () => {
-    const parsed = parseAnchor('2026-03-09', fallback);
-    expect(parsed.getMonth()).toBe(2);
-    expect(parsed.getDate()).toBe(9);
-    expect(parsed.getHours()).toBe(0);
-  });
-
-  it('rejects an impossible day instead of rolling it forward', () => {
-    // new Date(2026, 1, 31) is 3 March, not invalid — getTime() alone would
-    // accept it and silently show the wrong month.
-    expect(parseAnchor('2026-02-31', fallback)).toEqual(fallback);
-    expect(parseAnchor('2026-04-31', fallback)).toEqual(fallback);
-    expect(parseAnchor('2026-13-01', fallback)).toEqual(fallback);
-  });
-
-  it('accepts 29 February in a leap year and rejects it otherwise', () => {
-    expect(parseAnchor('2028-02-29', fallback).getDate()).toBe(29);
-    expect(parseAnchor('2026-02-29', fallback)).toEqual(fallback);
-  });
-
-  it('falls back on junk and on nothing', () => {
-    expect(parseAnchor(undefined, fallback)).toEqual(fallback);
-    expect(parseAnchor('not-a-date', fallback)).toEqual(fallback);
-    expect(parseAnchor('2026-8-1', fallback)).toEqual(fallback);
+describe('startOfMonthKey', () => {
+  it('is the first of that month', () => {
+    expect(startOfMonthKey('2026-08-19')).toBe('2026-08-01');
   });
 });
 
 describe('durationMinutes', () => {
-  const start = new Date(2026, 7, 19, 9);
+  const start = new Date('2026-08-19T09:00:00Z');
 
   it('is the gap in whole minutes', () => {
-    expect(durationMinutes(entry({ start, end: new Date(2026, 7, 19, 10, 30) }))).toBe(90);
+    expect(durationMinutes(entry({ start, end: new Date('2026-08-19T10:30:00Z') }))).toBe(90);
   });
 
   it('is null when there is no end time', () => {
@@ -286,12 +271,11 @@ describe('durationMinutes', () => {
   it('is 0 for a zero-length event, not null', () => {
     // Google allows these and they are a real point in time. Returning null
     // would imply the end time is missing when it is present and equal.
-    expect(durationMinutes(entry({ start, end: new Date(2026, 7, 19, 9) }))).toBe(0);
+    expect(durationMinutes(entry({ start, end: new Date('2026-08-19T09:00:00Z') }))).toBe(0);
   });
 
   it('is null when the end precedes the start', () => {
-    // Corrupt data; no honest number can be derived from it.
-    expect(durationMinutes(entry({ start, end: new Date(2026, 7, 19, 8) }))).toBeNull();
+    expect(durationMinutes(entry({ start, end: new Date('2026-08-19T08:00:00Z') }))).toBeNull();
   });
 });
 

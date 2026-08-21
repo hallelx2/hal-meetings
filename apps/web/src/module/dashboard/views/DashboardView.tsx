@@ -9,10 +9,11 @@ import { CalendarLegend, EventChip } from '@/module/dashboard/components/EventCh
 import {
   buildGrid,
   isLive,
-  periodLabel,
   periodStats,
+  startOfWeekKey,
   type CalendarView,
 } from '@/module/dashboard/calendar';
+import { addDaysToKey, formatDayMonth, formatMonthYear, type DayKey } from '@/module/dashboard/zone';
 import type { CalendarState } from '@/server/dashboard';
 
 function ConnectPrompt() {
@@ -50,22 +51,33 @@ function Notice({ title, body, action }: { title: string; body: string; action?:
   );
 }
 
+/** "August 2026", or "17 Aug – 23 Aug" for a week. */
+function periodLabel(anchor: DayKey, view: CalendarView): string {
+  if (view === 'month') return formatMonthYear(anchor);
+  const from = startOfWeekKey(anchor);
+  return `${formatDayMonth(from)} – ${formatDayMonth(addDaysToKey(from, 6))}`;
+}
+
 export function DashboardView({
   name,
   calendar,
   anchor,
   view,
   now,
+  todayKey,
+  timeZone,
 }: {
   name: string | null;
   calendar: CalendarState;
-  anchor: Date;
+  anchor: DayKey;
   view: CalendarView;
   now: Date;
+  todayKey: DayKey;
+  timeZone: string;
 }) {
   const firstName = name?.split(' ')[0] ?? null;
   const entries = calendar.kind === 'ready' ? calendar.entries : [];
-  const cells = buildGrid(anchor, now, view, entries);
+  const cells = buildGrid(anchor, todayKey, view, entries, timeZone);
   const stats = periodStats(cells);
   const label = periodLabel(anchor, view);
   const liveNow = entries.filter((entry) => isLive(entry, now));
@@ -106,8 +118,8 @@ export function DashboardView({
           <ul className="flex flex-col gap-2">
             {liveNow.map((entry) => (
               <li key={entry.id}>
-                <MeetingDetail entry={entry} now={now}>
-                  <EventChip entry={entry} now={now} />
+                <MeetingDetail entry={entry} now={now} timeZone={timeZone}>
+                  <EventChip entry={entry} now={now} timeZone={timeZone} />
                 </MeetingDetail>
               </li>
             ))}
@@ -117,14 +129,14 @@ export function DashboardView({
 
       {calendar.kind === 'ready' ? (
         <section className="flex flex-col gap-4">
-          <CalendarToolbar anchor={anchor} view={view} label={label} today={now} />
+          <CalendarToolbar anchor={anchor} view={view} label={label} todayKey={todayKey} />
           <CalendarLegend />
           {stats.total === 0 ? (
             <p className="p-6 text-[15px] text-ink/60 brutal-border-2">
               Nothing on your calendar in {label}.
             </p>
           ) : (
-            <CalendarGrid cells={cells} view={view} now={now} />
+            <CalendarGrid cells={cells} view={view} now={now} timeZone={timeZone} />
           )}
         </section>
       ) : null}

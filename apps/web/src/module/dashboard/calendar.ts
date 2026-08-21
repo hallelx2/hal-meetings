@@ -1,8 +1,20 @@
 /**
- * Calendar grid maths. Pure, so the awkward cases — month lengths, leap years,
- * the weeks that straddle two months — can be tested without a browser, a
- * database or a clock.
+ * Calendar grid maths, in an explicit timezone.
+ *
+ * The grid is built from **calendar days**, not from instants, because that is
+ * what it displays. An instant only becomes a day once you say in which zone —
+ * and leaving that implicit is how the same event rendered 17:00 on the server
+ * and 18:00 in the browser, and could land in two different cells.
  */
+
+import {
+  addDaysToKey,
+  dayKeyOf,
+  makeDayKey,
+  parseDayKey,
+  weekdayOfKey,
+  type DayKey,
+} from '@/module/dashboard/zone';
 
 export type Attendee = {
   email: string;
@@ -22,7 +34,7 @@ export type CalendarEntry = {
   /** Set once Hal has a meetings row for this event. */
   status?: string | null;
   policy?: string | null;
-  /** Detail, for the panel. Fetched from Google and previously discarded. */
+  /** Detail, for the panel. */
   description?: string | null;
   location?: string | null;
   organizer?: string | null;
@@ -31,8 +43,21 @@ export type CalendarEntry = {
   htmlLink?: string | null;
 };
 
-/**
- * Minutes between start and end.
+export type CalendarView = 'month' | 'week';
+
+export type DayCell = {
+  key: DayKey;
+  /** Day of month, for the cell label. */
+  dayOfMonth: number;
+  /** False for the leading/trailing days borrowed from the neighbouring month. */
+  inPeriod: boolean;
+  isToday: boolean;
+  entries: CalendarEntry[];
+};
+
+export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+/** Minutes between start and end.
  *
  * `null` means "no duration to show" and covers two different things: an event
  * with no end time at all, and one whose end precedes its start — corrupt data
@@ -59,105 +84,72 @@ export function formatDuration(minutes: number | null): string | null {
   return `${hours}h ${rest}m`;
 }
 
-export type CalendarView = 'month' | 'week';
-
-export type DayCell = {
-  date: Date;
-  /** False for the leading/trailing days borrowed from the neighbouring month. */
-  inPeriod: boolean;
-  isToday: boolean;
-  entries: CalendarEntry[];
-};
-
-export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-
-function atMidnight(date: Date): Date {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
-
-export function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-export function addMonths(date: Date, months: number): Date {
-  // Anchor to the 1st before shifting. Adding a month to the 31st otherwise
-  // lands in the month after next, because JS clamps by overflowing.
-  const next = new Date(date.getFullYear(), date.getMonth() + months, 1);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
 /** Monday-first, because the working week is what this screen is about. */
-export function startOfWeek(now: Date): Date {
-  const date = atMidnight(now);
-  const weekday = (date.getDay() + 6) % 7; // Mon = 0
-  return addDays(date, -weekday);
+export function startOfWeekKey(key: DayKey): DayKey {
+  return addDaysToKey(key, -weekdayOfKey(key));
 }
 
-export function startOfMonth(now: Date): Date {
-  return new Date(now.getFullYear(), now.getMonth(), 1);
+export function startOfMonthKey(key: DayKey): DayKey {
+  const { year, month } = parseDayKey(key);
+  return makeDayKey(year, month, 1);
 }
 
-export function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+/** Shift by whole months, anchored to the 1st so a long month cannot overflow. */
+export function addMonthsToKey(key: DayKey, months: number): DayKey {
+  const { year, month } = parseDayKey(key);
+  const shifted = new Date(Date.UTC(year, month + months, 1));
+  return makeDayKey(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1);
 }
 
-/**
- * The range the grid actually displays — which is what must be synced.
- *
- * A month grid shows days either side of the month, and events on those days
- * are real events the user expects to see. Fetching only the month leaves the
- * first and last rows mysteriously empty.
- */
-export function visibleRange(anchor: Date, view: CalendarView): { from: Date; to: Date } {
-  if (view === 'week') {
-    const from = startOfWeek(anchor);
-    return { from, to: addDays(from, 7) };
-  }
-  const from = startOfWeek(startOfMonth(anchor));
-  // Six rows always. A fixed height stops the page reflowing as you page
-  // through months, and five-row months are the minority.
-  return { from, to: addDays(from, 42) };
+/** How many day cells the view shows. Six rows for a month, fixed. */
+export function cellCount(view: CalendarView): number {
+  return view === 'week' ? 7 : 42;
+}
+
+/** The first day cell on screen. */
+export function firstCellKey(anchor: DayKey, view: CalendarView): DayKey {
+  return view === 'week' ? startOfWeekKey(anchor) : startOfWeekKey(startOfMonthKey(anchor));
 }
 
 /**
  * Bucket entries into the cells of the visible grid.
  *
- * Entries outside the range are dropped rather than clamped to the nearest day —
- * a meeting shown on the wrong date is worse than one not shown.
+ * Membership is decided by the entry's calendar day **in the display zone**,
+ * never by `getDate()` — which would answer in whatever zone the code happens
+ * to be running in and file a late-evening meeting under the wrong date.
  */
 export function buildGrid(
-  anchor: Date,
-  now: Date,
+  anchor: DayKey,
+  todayKey: DayKey,
   view: CalendarView,
   entries: CalendarEntry[],
+  timeZone: string,
 ): DayCell[] {
-  const { from } = visibleRange(anchor, view);
-  const length = view === 'week' ? 7 : 42;
-  const month = anchor.getMonth();
+  const first = firstCellKey(anchor, view);
+  const anchorMonth = parseDayKey(anchor).month;
 
-  return Array.from({ length }, (_, offset) => {
-    const date = addDays(from, offset);
+  const byDay = new Map<DayKey, CalendarEntry[]>();
+  for (const entry of entries) {
+    const key = dayKeyOf(entry.start, timeZone);
+    const bucket = byDay.get(key);
+    if (bucket) bucket.push(entry);
+    else byDay.set(key, [entry]);
+  }
+
+  return Array.from({ length: cellCount(view) }, (_, offset) => {
+    const key = addDaysToKey(first, offset);
+    const { month, day } = parseDayKey(key);
     return {
-      date,
-      inPeriod: view === 'week' ? true : date.getMonth() === month,
-      isToday: sameDay(date, now),
-      entries: entries
-        .filter((entry) => sameDay(entry.start, date))
-        .sort((a, b) => a.start.getTime() - b.start.getTime()),
+      key,
+      dayOfMonth: day,
+      inPeriod: view === 'week' ? true : month === anchorMonth,
+      isToday: key === todayKey,
+      entries: (byDay.get(key) ?? []).sort((a, b) => a.start.getTime() - b.start.getTime()),
     };
   });
 }
 
-/** Anything happening right now, by wall clock. */
+/** Anything happening right now. Instant comparison, so zone-independent. */
 export function isLive(entry: CalendarEntry, now: Date): boolean {
   if (entry.end && entry.end.getTime() <= now.getTime()) return false;
   const sinceStart = now.getTime() - entry.start.getTime();
@@ -197,20 +189,4 @@ export function periodStats(cells: DayCell[]): PeriodStats {
     unsupported: entries.filter((entry) => entry.platform !== null && !entry.joinable).length,
     hours: Math.round((minutes / 60) * 10) / 10,
   };
-}
-
-/** e.g. "August 2026", or "17 – 23 Aug" for a week. */
-export function periodLabel(anchor: Date, view: CalendarView): string {
-  if (view === 'month') {
-    return anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  }
-  const from = startOfWeek(anchor);
-  const to = addDays(from, 6);
-  const fromPart = from.toLocaleDateString(undefined, { day: 'numeric' });
-  const toPart = to.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: from.getFullYear() === to.getFullYear() ? undefined : 'numeric',
-  });
-  return `${fromPart} – ${toPart}`;
 }

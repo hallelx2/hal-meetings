@@ -142,11 +142,17 @@ async function accessTokenFor(deps: Deps, token: OauthTokenRow): Promise<string>
   return payload.access_token;
 }
 
-/** Fetch events in a window from the user's primary calendar. */
+/**
+ * Fetch events in a window from the user's primary calendar.
+ *
+ * Returns the calendar's own `timeZone` alongside the events. That zone — not
+ * the server's, not the browser's — is the one the user thinks in, and every
+ * rendered time has to be formatted with it or the two ends disagree.
+ */
 export async function fetchCalendarEvents(
   deps: Deps,
   window: { from: Date; to: Date },
-): Promise<GoogleCalendarEvent[]> {
+): Promise<{ events: GoogleCalendarEvent[]; timeZone: string | null }> {
   const tokens = await deps.store.oauthTokens.findForUser(deps.user.id, 'google');
   const token = tokens.find((row) => hasCalendarAccess(row.scopes ?? []));
   if (!token) throw new CalendarNotConnectedError();
@@ -174,8 +180,11 @@ export async function fetchCalendarEvents(
     throw new Error(`Google Calendar request failed (${response.status})`);
   }
 
-  const payload = (await response.json()) as { items?: GoogleCalendarEvent[] };
-  return payload.items ?? [];
+  const payload = (await response.json()) as {
+    items?: GoogleCalendarEvent[];
+    timeZone?: string | null;
+  };
+  return { events: payload.items ?? [], timeZone: payload.timeZone ?? null };
 }
 
 export type SyncedMeeting = {
@@ -216,9 +225,9 @@ export function toSyncedMeeting(event: GoogleCalendarEvent): SyncedMeeting | nul
 export async function syncCalendarWindow(
   deps: Deps,
   window: { from: Date; to: Date },
-): Promise<{ events: SyncedMeeting[]; synced: number }> {
+): Promise<{ events: SyncedMeeting[]; synced: number; timeZone: string | null }> {
   const raw = await fetchCalendarEvents(deps, window);
-  const events = raw.map(toSyncedMeeting).filter((m): m is SyncedMeeting => m !== null);
+  const events = raw.events.map(toSyncedMeeting).filter((m): m is SyncedMeeting => m !== null);
 
   // Read the window's existing rows once and index them, rather than a lookup
   // per event. A busy week is otherwise ~2N sequential round trips on a page
@@ -271,5 +280,5 @@ export async function syncCalendarWindow(
     synced += 1;
   }
 
-  return { events, synced };
+  return { events, synced, timeZone: raw.timeZone };
 }

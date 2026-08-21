@@ -1,9 +1,6 @@
 import { cn } from '@hal/ui';
 import { isLive, type CalendarEntry } from '@/module/dashboard/calendar';
-
-function time(date: Date): string {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
+import { formatTime } from '@/module/dashboard/zone';
 
 /**
  * One event in a day cell.
@@ -16,10 +13,12 @@ function time(date: Date): string {
 export function EventChip({
   entry,
   now,
+  timeZone,
   dense = false,
 }: {
   entry: CalendarEntry;
   now: Date;
+  timeZone: string;
   dense?: boolean;
 }) {
   const live = isLive(entry, now);
@@ -47,7 +46,7 @@ export function EventChip({
     >
       <div className="flex items-baseline gap-1.5">
         <span className="shrink-0 font-mono-grit text-[11px] font-bold tabular-nums text-ink/70">
-          {time(entry.start)}
+          {formatTime(entry.start, timeZone)}
         </span>
         <span className={cn('min-w-0 truncate text-[12px] font-semibold text-ink', dense && 'text-[11px]')}>
           {entry.title}
