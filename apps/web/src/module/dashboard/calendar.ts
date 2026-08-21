@@ -31,11 +31,22 @@ export type CalendarEntry = {
   htmlLink?: string | null;
 };
 
-/** Minutes between start and end, or null when the event has no end. */
+/**
+ * Minutes between start and end.
+ *
+ * `null` means "no duration to show" and covers two different things: an event
+ * with no end time at all, and one whose end precedes its start — corrupt data
+ * from which no honest number can be derived.
+ *
+ * A zero-length event is **0, not null**. Google allows them and they are a
+ * real point in time; reporting nothing would imply the end time is missing
+ * when it is present and equal.
+ */
 export function durationMinutes(entry: CalendarEntry): number | null {
   if (!entry.end) return null;
   const span = entry.end.getTime() - entry.start.getTime();
-  return span > 0 ? Math.round(span / 60_000) : null;
+  if (span < 0) return null;
+  return Math.round(span / 60_000);
 }
 
 /** "1h 30m", "45m", or null. */

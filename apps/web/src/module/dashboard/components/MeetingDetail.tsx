@@ -1,7 +1,7 @@
 'use client';
 
 import * as Popover from '@radix-ui/react-popover';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@hal/ui';
 import {
   durationMinutes,
@@ -78,6 +78,10 @@ export function MeetingDetail({
     // and the panel without it vanishing underneath them.
     closeTimer.current = setTimeout(() => setOpen(false), 120);
   };
+
+  // Paging the calendar unmounts every chip at once. Without this, each one
+  // that was mid-hover leaves a timer that fires into a dead component.
+  useEffect(() => cancelClose, []);
 
   const live = isLive(entry, now);
   const duration = formatDuration(durationMinutes(entry));

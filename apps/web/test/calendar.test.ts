@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import {
   addMonths,
+  durationMinutes,
+  formatDuration,
   buildGrid,
   isLive,
   periodStats,
@@ -267,5 +269,45 @@ describe('anchor parsing (mirrors the page helper)', () => {
     expect(parseAnchor(undefined, fallback)).toEqual(fallback);
     expect(parseAnchor('not-a-date', fallback)).toEqual(fallback);
     expect(parseAnchor('2026-8-1', fallback)).toEqual(fallback);
+  });
+});
+
+describe('durationMinutes', () => {
+  const start = new Date(2026, 7, 19, 9);
+
+  it('is the gap in whole minutes', () => {
+    expect(durationMinutes(entry({ start, end: new Date(2026, 7, 19, 10, 30) }))).toBe(90);
+  });
+
+  it('is null when there is no end time', () => {
+    expect(durationMinutes(entry({ start, end: null }))).toBeNull();
+  });
+
+  it('is 0 for a zero-length event, not null', () => {
+    // Google allows these and they are a real point in time. Returning null
+    // would imply the end time is missing when it is present and equal.
+    expect(durationMinutes(entry({ start, end: new Date(2026, 7, 19, 9) }))).toBe(0);
+  });
+
+  it('is null when the end precedes the start', () => {
+    // Corrupt data; no honest number can be derived from it.
+    expect(durationMinutes(entry({ start, end: new Date(2026, 7, 19, 8) }))).toBeNull();
+  });
+});
+
+describe('formatDuration', () => {
+  it('renders minutes, hours, and both', () => {
+    expect(formatDuration(45)).toBe('45m');
+    expect(formatDuration(60)).toBe('1h');
+    expect(formatDuration(90)).toBe('1h 30m');
+    expect(formatDuration(125)).toBe('2h 5m');
+  });
+
+  it('passes null through rather than inventing a zero', () => {
+    expect(formatDuration(null)).toBeNull();
+  });
+
+  it('renders a zero-length event as 0m', () => {
+    expect(formatDuration(0)).toBe('0m');
   });
 });
