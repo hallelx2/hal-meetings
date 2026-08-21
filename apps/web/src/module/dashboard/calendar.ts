@@ -4,6 +4,13 @@
  * database or a clock.
  */
 
+export type Attendee = {
+  email: string;
+  /** Google's response status: accepted | declined | tentative | needsAction. */
+  response: string | null;
+  isSelf: boolean;
+};
+
 export type CalendarEntry = {
   id: string;
   title: string;
@@ -12,9 +19,45 @@ export type CalendarEntry = {
   platform: 'meet' | 'zoom' | 'teams' | null;
   url: string | null;
   joinable: boolean;
+  /** Set once Hal has a meetings row for this event. */
   status?: string | null;
   policy?: string | null;
+  /** Detail, for the panel. Fetched from Google and previously discarded. */
+  description?: string | null;
+  location?: string | null;
+  organizer?: string | null;
+  attendees?: Attendee[];
+  /** The event's own page on Google Calendar. */
+  htmlLink?: string | null;
 };
+
+/**
+ * Minutes between start and end.
+ *
+ * `null` means "no duration to show" and covers two different things: an event
+ * with no end time at all, and one whose end precedes its start — corrupt data
+ * from which no honest number can be derived.
+ *
+ * A zero-length event is **0, not null**. Google allows them and they are a
+ * real point in time; reporting nothing would imply the end time is missing
+ * when it is present and equal.
+ */
+export function durationMinutes(entry: CalendarEntry): number | null {
+  if (!entry.end) return null;
+  const span = entry.end.getTime() - entry.start.getTime();
+  if (span < 0) return null;
+  return Math.round(span / 60_000);
+}
+
+/** "1h 30m", "45m", or null. */
+export function formatDuration(minutes: number | null): string | null {
+  if (minutes === null) return null;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest}m`;
+  if (rest === 0) return `${hours}h`;
+  return `${hours}h ${rest}m`;
+}
 
 export type CalendarView = 'month' | 'week';
 

@@ -16,6 +16,8 @@
     "@hal/design-tokens": "workspace:*",
     "@hal/media": "workspace:*",
     "@hal/ui": "workspace:*",
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-popover": "^1.1.23",
     "better-auth": "~1.7.1",
     "drizzle-orm": "^0.36.4",
     "motion": "^11.15.0",

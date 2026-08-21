@@ -1,9 +1,10 @@
 import { PageHeader } from '@/module/shell/components/PageHeader';
 import { ConnectCalendarButton } from '@/module/cockpit/components/ConnectCalendarButton';
-import { JoinMeetForm } from '@/module/cockpit/components/JoinMeetForm';
 import { StatRow } from '@/module/dashboard/components/StatRow';
 import { CalendarGrid } from '@/module/dashboard/components/CalendarGrid';
 import { CalendarToolbar } from '@/module/dashboard/components/CalendarToolbar';
+import { SendHalDialog } from '@/module/dashboard/components/SendHalDialog';
+import { MeetingDetail } from '@/module/dashboard/components/MeetingDetail';
 import { CalendarLegend, EventChip } from '@/module/dashboard/components/EventChip';
 import {
   buildGrid,
@@ -77,8 +78,9 @@ export function DashboardView({
         lede={
           calendar.kind === 'ready'
             ? 'Your calendar, and what Hal can do with it.'
-            : 'Paste a Meet link to send Hal into a call, or connect your calendar so it can join on its own.'
+            : 'Send Hal into a call, or connect your calendar so it can join on its own.'
         }
+        action={<SendHalDialog />}
       />
 
       {calendar.kind === 'not-connected' ? <ConnectPrompt /> : null}
@@ -104,7 +106,9 @@ export function DashboardView({
           <ul className="flex flex-col gap-2">
             {liveNow.map((entry) => (
               <li key={entry.id}>
-                <EventChip entry={entry} now={now} />
+                <MeetingDetail entry={entry} now={now}>
+                  <EventChip entry={entry} now={now} />
+                </MeetingDetail>
               </li>
             ))}
           </ul>
@@ -124,19 +128,6 @@ export function DashboardView({
           )}
         </section>
       ) : null}
-
-      <section className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-[22px] leading-[1.1]">Send Hal to a meeting</h2>
-          <p className="max-w-[60ch] text-[16px] leading-relaxed text-ink/70">
-            Paste a Google Meet link. Hal joins, announces itself, transcribes, and emails you the
-            summary when the call ends.
-          </p>
-        </div>
-        <div className="p-6 brutal-border-2 md:p-8">
-          <JoinMeetForm />
-        </div>
-      </section>
     </div>
   );
 }

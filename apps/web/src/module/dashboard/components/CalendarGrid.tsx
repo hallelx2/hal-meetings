@@ -1,6 +1,7 @@
 import { cn } from '@hal/ui';
 import { DAY_NAMES, type CalendarView, type DayCell } from '@/module/dashboard/calendar';
 import { EventChip } from '@/module/dashboard/components/EventChip';
+import { MeetingDetail } from '@/module/dashboard/components/MeetingDetail';
 
 /** How many chips a month cell shows before collapsing the rest into a count. */
 const MONTH_CELL_LIMIT = 3;
@@ -85,7 +86,9 @@ export function CalendarGrid({
                 <DayNumber cell={cell} view={view} />
                 <div className="flex flex-col gap-1">
                   {shown.map((entry) => (
-                    <EventChip key={entry.id} entry={entry} now={now} dense={view === 'month'} />
+                    <MeetingDetail key={entry.id} entry={entry} now={now}>
+                      <EventChip entry={entry} now={now} dense={view === 'month'} />
+                    </MeetingDetail>
                   ))}
                   {overflow > 0 ? (
                     <span className="px-1 text-[11px] font-bold uppercase tracking-adora text-ink/50">
@@ -125,7 +128,9 @@ export function CalendarGrid({
               </p>
               <div className="flex flex-col gap-1.5">
                 {cell.entries.map((entry) => (
-                  <EventChip key={entry.id} entry={entry} now={now} />
+                  <MeetingDetail key={entry.id} entry={entry} now={now}>
+                    <EventChip entry={entry} now={now} />
+                  </MeetingDetail>
                 ))}
               </div>
             </div>
