@@ -3,6 +3,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useState } from 'react';
 import { JoinMeetForm } from '@/module/cockpit/components/JoinMeetForm';
+import { dismissPopovers } from '@/module/dashboard/popover-bus';
 
 /**
  * Sending Hal into an ad-hoc call, as a modal.
@@ -19,7 +20,16 @@ export function SendHalDialog() {
   const [open, setOpen] = useState(false);
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        // A hover preview left open under the overlay cannot be dismissed by
+        // moving the pointer — the overlay swallows the events — so it has to
+        // be told to go.
+        if (next) dismissPopovers();
+        setOpen(next);
+      }}
+    >
       <Dialog.Trigger asChild>
         <button
           type="button"

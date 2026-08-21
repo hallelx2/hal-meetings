@@ -59,6 +59,32 @@
   .brutal-border-2 { border: 2px solid var(--color-ink); }
   .brutal-divider { border-top: 1.5px dashed var(--color-ink); }
 
+  /* Scroll surfaces inside brutalist panels.
+     The platform scrollbar is a rounded grey lozenge that reads as a browser
+     artefact sitting on a hard-bordered white slab. Drawn explicitly instead:
+     square ink thumb, hairline rule for the track. Firefox takes the two-colour
+     form, WebKit and Chromium take the pseudo-elements; both are declared
+     because neither alone covers the browsers this ships to. */
+  .brutal-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink) transparent;
+    /* Reaching the end of a panel must not start scrolling the page behind it. */
+    overscroll-behavior: contain;
+  }
+  .brutal-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+  .brutal-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    border-left: 1.5px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+  }
+  .brutal-scroll::-webkit-scrollbar-thumb {
+    background: var(--color-ink);
+    /* The inset is the gap; a square thumb on a square track needs the air. */
+    border: 3px solid var(--color-canvas-white);
+    border-radius: 0;
+  }
+  .brutal-scroll::-webkit-scrollbar-thumb:hover { background: var(--color-ink-soft); }
+  .brutal-scroll::-webkit-scrollbar-corner { background: transparent; }
+
   /* Drifting orb animation (used sparingly, only behind hero). */
   @keyframes drift {
     0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }

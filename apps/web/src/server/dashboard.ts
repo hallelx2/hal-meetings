@@ -79,6 +79,7 @@ export async function loadDashboardCalendar(
         joinable: meeting.conferencing?.joinable ?? false,
         status: row?.status ?? null,
         policy: row?.policy ?? null,
+        failureReason: row?.failureReason ?? null,
         description: meeting.event.description?.trim() || null,
         location: meeting.event.location?.trim() || null,
         organizer:
