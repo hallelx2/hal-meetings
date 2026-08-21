@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 
-export function GoogleSignInButton({ next = '/app' }: { next?: string }) {
+export function GoogleSignInButton({ next = '/dashboard' }: { next?: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

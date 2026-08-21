@@ -6,7 +6,7 @@ type Tone = 'neon' | 'aqua' | 'electric' | 'violet';
 const tones: Record<Tone, string> = {
   neon: 'text-neon-pink border-neon-pink/40',
   aqua: 'text-aqua-blue border-aqua-blue/40',
-  electric: 'text-[#5c8a04] border-electric-green/60',
+  electric: 'text-electric-green-ink border-electric-green/60',
   violet: 'text-action-violet border-action-violet/30',
 };
 

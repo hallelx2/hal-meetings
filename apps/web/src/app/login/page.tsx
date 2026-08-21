@@ -12,7 +12,7 @@ export default async function Page({
 }) {
   const session = await getAuth().api.getSession({ headers: await headers() });
   const params = await searchParams;
-  const next = params.next?.startsWith('/') ? params.next : '/app';
+  const next = params.next?.startsWith('/') ? params.next : '/dashboard';
   if (session) redirect(next);
   return <LoginView next={next} />;
 }

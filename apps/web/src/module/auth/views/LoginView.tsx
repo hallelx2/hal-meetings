@@ -13,10 +13,10 @@ export function LoginView({ next }: { next: string }) {
       <section className="flex-1 flex items-center justify-center px-5 py-16">
         <div className="w-full max-w-[440px] brutal-border-2 p-8 flex flex-col gap-6">
           <p className="text-[12px] font-bold uppercase tracking-adora text-ink/50">Sign in</p>
-          <h1 className="text-[36px] leading-[0.95]">Connect Google Calendar</h1>
+          <h1 className="text-[36px] leading-[0.95]">Sign in to Hal</h1>
           <p className="text-[16px] text-ink/75 leading-relaxed">
-            Hal uses Calendar read access to see your Meet links. It does not join as you, and it
-            does not request Gmail.
+            Google tells Hal your name and email — nothing else. Calendar access is a separate
+            step you take later, from inside the app, and Hal never requests Gmail.
           </p>
           <GoogleSignInButton next={next} />
           <p className="text-[13px] text-ink/55">

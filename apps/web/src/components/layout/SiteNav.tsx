@@ -49,7 +49,7 @@ export function SiteNav({
           </a>
           {signedIn ? (
             <Link
-              href="/app"
+              href="/dashboard"
               className="inline-flex h-10 items-center px-5 bg-ink text-canvas-white text-[14px] font-bold uppercase tracking-adora hover:bg-ink-soft transition-colors"
             >
               {email ? email.split('@')[0] : 'Open app'}

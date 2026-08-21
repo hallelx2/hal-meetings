@@ -1,10 +1,8 @@
 @import 'tailwindcss';
 @import '@hal/design-tokens/theme.css';
 
-@theme {
-  --color-ink: #0b0b0b;
-  --color-ink-soft: #1a1a1a;
-}
+/* --color-ink / --color-ink-soft now live in @hal/design-tokens, so mobile
+   reads the same two colours the entire system is drawn with. */
 
 @layer base {
   :root {
@@ -55,10 +53,11 @@
   .font-sans { font-family: var(--font-sans); }
   .font-mono-grit { font-family: ui-monospace, 'JetBrains Mono', 'Menlo', monospace; }
 
-  /* Neo-brutalist hard border (signature). */
-  .brutal-border { border: 1.5px solid #0b0b0b; }
-  .brutal-border-2 { border: 2px solid #0b0b0b; }
-  .brutal-divider { border-top: 1.5px dashed #0b0b0b; }
+  /* Neo-brutalist hard border (signature). Token, not a hex — this rule is the
+     single most-repeated mark in the product. */
+  .brutal-border { border: 1.5px solid var(--color-ink); }
+  .brutal-border-2 { border: 2px solid var(--color-ink); }
+  .brutal-divider { border-top: 1.5px dashed var(--color-ink); }
 
   /* Drifting orb animation (used sparingly, only behind hero). */
   @keyframes drift {
