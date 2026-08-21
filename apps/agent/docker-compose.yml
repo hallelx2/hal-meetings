@@ -23,6 +23,16 @@ services:
     env_file:
       - ./.env
 
+    volumes:
+      # The bot's signed-in Chromium profile, kept outside the image.
+      #
+      # Google Meet refuses anonymous guests on meetings created by consumer
+      # accounts — not a lobby, a flat "You can't join this video call". The
+      # only way in is a signed-in Google account, and a browser profile is
+      # where that session lives. Losing it on every rebuild would mean signing
+      # in by hand after every deploy.
+      - /opt/hal/chrome-profile:/data/chrome-profile
+
     # The container is self-contained (Xvfb + PulseAudio inside). It doesn't
     # listen on any port — all traffic is outbound (Neon, Gemini, Deepgram, Resend, Meet).
 

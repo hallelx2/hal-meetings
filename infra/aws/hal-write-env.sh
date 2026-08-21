@@ -49,6 +49,10 @@ fetch_env() {
     echo "HAL_BOT_DISPLAY_NAME=Hal · AI for {{user}}"
     echo "HAL_BOT_DISCLOSURE=Hi — I'm Hal, an AI assistant joining on {{user}}'s behalf. I'm transcribing this meeting. Reply '/hal stop' in chat to remove me."
     echo "HAL_PULSE_SINK=halsink"
+    # Signed-in browser profile. Meet will not admit an anonymous guest to a
+    # meeting hosted by a consumer Google account, so this is required, not
+    # optional. Mounted from /opt/hal/chrome-profile on the host.
+    echo "HAL_USER_DATA_DIR=/data/chrome-profile"
     echo "HAL_AUDIO_DIR=/tmp/hal-audio"
     echo "NODE_ENV=production"
     echo "LOG_LEVEL=info"
