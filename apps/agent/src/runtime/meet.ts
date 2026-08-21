@@ -2,6 +2,18 @@ import { chromium, type Browser, type Page, type BrowserContext } from 'playwrig
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
 
+/**
+ * The hang-up button — present for exactly as long as we are in the call, and
+ * nothing else is. Used both to confirm admission and to notice the end, so the
+ * two can never disagree about whether Hal is in a meeting.
+ */
+const IN_CALL_SELECTOR =
+  'button[aria-label*="Leave call" i], button[aria-label*="End call" i], button[aria-label*="Hang up" i]';
+
+/** Chat message nodes. Meet gives these no stable hook, so this is a best effort. */
+const CHAT_MESSAGE_SELECTOR =
+  '[data-message-text], [jsname][data-sender-name], div[role="listitem"], [class*="chat-message"]';
+
 export interface MeetRuntimeOptions {
   /** PulseAudio sink to route Chromium audio to (must exist in the container). */
   pulseSink: string;
@@ -146,7 +158,7 @@ export class MeetRuntime implements BotRuntime {
     emit({ kind: 'disclosed' });
 
     // Step 6: subscribe to chat for /hal stop and listen for "you've been removed" UI.
-    const stopWatching = this.watchChatAndStatus(page, emit, log);
+    const stopWatching = this.watchCall(page, emit, log);
 
     let left = false;
     const leave = async (reason: string) => {
@@ -329,10 +341,7 @@ export class MeetRuntime implements BotRuntime {
     // Heuristic: in-call UI shows the leave-call (hang up) button. The
     // accessible name is "Leave call" or "End call" depending on host.
     try {
-      await page
-        .locator('button[aria-label*="Leave call" i], button[aria-label*="End call" i]')
-        .first()
-        .waitFor({ state: 'visible', timeout: timeoutMs });
+      await page.locator(IN_CALL_SELECTOR).first().waitFor({ state: 'visible', timeout: timeoutMs });
       log.info('admitted to call');
       return true;
     } catch {
@@ -370,54 +379,94 @@ export class MeetRuntime implements BotRuntime {
     await input.press('Enter');
   }
 
-  private watchChatAndStatus(
+  /**
+   * Watch the call: chat for `/hal stop`, and the in-call UI for the call ending.
+   *
+   * The end signal is **structural, not textual**. The previous version matched
+   * on "removed from the meeting" / "you left the meeting", neither of which is
+   * what Meet shows when a host ends a call — so Hal sat in a finished meeting
+   * for thirteen minutes with nine transcript lines it never got to write, and
+   * would have sat there indefinitely.
+   *
+   * Instead: the hang-up button is the one thing that is present for exactly as
+   * long as we are in the call. Its sustained absence means we are out, whatever
+   * words Google chose, in whatever language.
+   */
+  private watchCall(
     page: Page,
     emit: (e: RuntimeEvent) => void,
     log: Logger,
   ): () => void {
-    // Poll the chat DOM for /hal stop. Meet renders chat messages with
-    // role="region" or in a scroll container — selectors below are
-    // accessible-name based and may need tuning.
     const seen = new Set<string>();
-    const interval = setInterval(async () => {
-      try {
-        const messages = await page
-          .locator('[role="region"] [data-sender-name], div[data-message-text]')
-          .all();
-        for (const m of messages) {
-          const sender = (await m.getAttribute('data-sender-name')) ?? 'unknown';
-          const text = (await m.getAttribute('data-message-text')) ?? (await m.textContent()) ?? '';
-          const sig = `${sender}|${text}`;
-          if (seen.has(sig)) continue;
-          seen.add(sig);
-          emit({ kind: 'chat-message', from: sender, text });
-          if (text.trim().toLowerCase().startsWith('/hal stop')) {
-            emit({ kind: 'kill-requested', from: sender });
-          }
-        }
+    // One missed poll is a re-render. Three in a row is the call being over.
+    let missingInCallUi = 0;
+    let chatNodesEverSeen = false;
+    let polls = 0;
+    let done = false;
 
-        // Detect being removed: the in-call buttons disappear and a "You left
-        // the meeting" or "Removed from the meeting" screen appears.
-        const removed = await page
-          .locator('text=/removed from the meeting|you left the meeting/i')
-          .first()
-          .isVisible()
-          .catch(() => false);
-        if (removed) {
-          emit({ kind: 'kicked', reason: 'removed from meeting' });
+    const finish = (reason: string) => {
+      if (done) return;
+      done = true;
+      emit({ kind: 'kicked', reason });
+    };
+
+    const interval = setInterval(() => {
+      void (async () => {
+        if (done) return;
+        polls += 1;
+        try {
+          for (const node of await page.locator(CHAT_MESSAGE_SELECTOR).all()) {
+            chatNodesEverSeen = true;
+            const text = ((await node.textContent()) ?? '').trim();
+            if (!text || seen.has(text)) continue;
+            seen.add(text);
+
+            const [head, ...rest] = text.split('\n');
+            const body = (rest.join('\n') || head || '').trim();
+            const from = rest.length ? (head ?? 'unknown').trim() : 'unknown';
+
+            emit({ kind: 'chat-message', from, text: body });
+            if (body.toLowerCase().includes('/hal stop')) {
+              log.info({ from }, 'kill requested in chat');
+              emit({ kind: 'kill-requested', from });
+            }
+          }
+
+          // Silent breakage and a quiet meeting look identical from here, so
+          // say which one this is rather than letting a broken kill switch
+          // pass for calm.
+          if (!chatNodesEverSeen && polls === 24) {
+            log.warn(
+              'chat watcher has matched no nodes in 60s — /hal stop may not be detectable; selectors likely stale',
+            );
+          }
+
+          const inCall = await page
+            .locator(IN_CALL_SELECTOR)
+            .first()
+            .isVisible()
+            .catch(() => false);
+
+          if (inCall) {
+            missingInCallUi = 0;
+          } else {
+            missingInCallUi += 1;
+            if (missingInCallUi >= 3) {
+              log.info('in-call UI gone for three polls — treating the call as ended');
+              finish('call ended');
+            }
+          }
+        } catch (e) {
+          log.debug({ err: (e as Error).message }, 'call poll error (will retry)');
         }
-      } catch (e) {
-        log.debug({ err: (e as Error).message }, 'chat poll error (will retry)');
-      }
+      })();
     }, 2_500);
 
     return () => clearInterval(interval);
   }
 
   private async leaveCall(page: Page): Promise<void> {
-    const leaveBtn = page
-      .locator('button[aria-label*="Leave call" i], button[aria-label*="End call" i]')
-      .first();
+    const leaveBtn = page.locator(IN_CALL_SELECTOR).first();
     await leaveBtn.click({ timeout: 5_000 });
   }
 
