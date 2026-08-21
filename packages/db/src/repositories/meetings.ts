@@ -55,6 +55,32 @@ export class MeetingsRepository {
     return row;
   }
 
+  /**
+   * Refresh the parts of a meeting the calendar owns.
+   *
+   * Deliberately narrow: title, URL and times only. A calendar sync must never
+   * touch `policy`, `mode` or `status` — those are the user's choice and the
+   * agent's state, and a re-sync that reset them would silently undo a decision
+   * or lose a meeting already in progress.
+   */
+  async updateSchedule(
+    id: string,
+    patch: Partial<{
+      title: string | null;
+      externalUrl: string | null;
+      scheduledStart: Date | null;
+      scheduledEnd: Date | null;
+    }>,
+  ): Promise<MeetingRow> {
+    const [row] = await this.db
+      .update(meetings)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(meetings.id, id))
+      .returning();
+    if (!row) throw new Error(`[@hal/db] meeting ${id} not found`);
+    return row;
+  }
+
   async updatePolicy(id: string, policy: MeetingPolicy, mode?: MeetingMode): Promise<MeetingRow> {
     const set: Partial<MeetingRow> = { policy, updatedAt: new Date() };
     if (mode) set.mode = mode;
