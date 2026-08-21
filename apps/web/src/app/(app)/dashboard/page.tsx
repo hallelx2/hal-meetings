@@ -2,33 +2,29 @@ import { requireSession } from '@/server/session';
 import { loadDashboardCalendar, type CalendarState } from '@/server/dashboard';
 import { DashboardView } from '@/module/dashboard/views/DashboardView';
 import type { CalendarView } from '@/module/dashboard/calendar';
+import { DEFAULT_TIME_ZONE, dayKeyOf, parseDayKey, type DayKey } from '@/module/dashboard/zone';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * `?on=YYYY-MM-DD` — parsed as local midnight rather than through `new Date()`,
- * which reads a bare date string as UTC and lands on the previous day for
- * anyone west of Greenwich.
+ * `?on=YYYY-MM-DD` — kept as a calendar day rather than parsed into an instant.
+ * A day is what the grid is anchored on, and turning it into a `Date` here is
+ * what would reintroduce an ambient timezone.
  */
-function parseAnchor(raw: string | undefined, fallback: Date): Date {
-  if (!raw) return fallback;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
-  if (!match) return fallback;
+function parseAnchor(raw: string | undefined, fallback: DayKey): DayKey {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return fallback;
 
-  const year = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const parsed = new Date(year, month, day);
-
-  // `new Date(2026, 1, 31)` is not invalid — it silently rolls forward to
-  // 3 March. Without the round-trip check a malformed `on=` would land the user
-  // in a different month than the URL names, and never hit the fallback.
+  // `new Date(2026, 1, 31)` is not invalid — it is 3 March. Without the
+  // round-trip check a malformed `on=` would land the user in a different month
+  // than the URL names.
+  const { year, month, day } = parseDayKey(raw);
+  const probe = new Date(Date.UTC(year, month, day));
   const roundTrips =
-    parsed.getFullYear() === year &&
-    parsed.getMonth() === month &&
-    parsed.getDate() === day;
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month &&
+    probe.getUTCDate() === day;
 
-  return roundTrips ? parsed : fallback;
+  return roundTrips ? raw : fallback;
 }
 
 export default async function Page({
@@ -41,16 +37,21 @@ export default async function Page({
 
   const now = new Date();
   const view: CalendarView = params.view === 'week' ? 'week' : 'month';
-  const anchor = parseAnchor(params.on, now);
 
-  // A grant that cannot be renewed will fail every sync, so say so directly
-  // rather than spending a round trip to Google to be told the same thing.
+  // The calendar's own zone is only known after the sync, so the first pass
+  // resolves "today" in UTC. Once the real zone is back, today is recomputed
+  // from it — otherwise the highlighted cell could be a day out.
+  const provisionalToday = dayKeyOf(now, DEFAULT_TIME_ZONE);
+  const anchor = parseAnchor(params.on, provisionalToday);
+
   const calendar: CalendarState =
     session.calendar === 'needs-reconnect'
       ? { kind: 'reauth-required', message: 'Hal can no longer renew its access to your calendar.' }
       : session.userId
         ? await loadDashboardCalendar(session.userId, anchor, view)
         : { kind: 'not-connected' };
+
+  const timeZone = calendar.kind === 'ready' ? calendar.timeZone : DEFAULT_TIME_ZONE;
 
   return (
     <DashboardView
@@ -59,6 +60,8 @@ export default async function Page({
       anchor={anchor}
       view={view}
       now={now}
+      todayKey={dayKeyOf(now, timeZone)}
+      timeZone={timeZone}
     />
   );
 }

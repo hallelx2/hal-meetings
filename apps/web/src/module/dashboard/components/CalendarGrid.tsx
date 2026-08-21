@@ -1,5 +1,6 @@
 import { cn } from '@hal/ui';
 import { DAY_NAMES, type CalendarView, type DayCell } from '@/module/dashboard/calendar';
+import { formatDayMonth, weekdayOfKey } from '@/module/dashboard/zone';
 import { EventChip } from '@/module/dashboard/components/EventChip';
 import { MeetingDetail } from '@/module/dashboard/components/MeetingDetail';
 
@@ -11,7 +12,7 @@ function DayNumber({ cell, view }: { cell: DayCell; view: CalendarView }) {
     <div className="flex items-baseline justify-between gap-1">
       {view === 'week' ? (
         <span className="text-[11px] font-bold uppercase tracking-adora text-ink/55">
-          {DAY_NAMES[(cell.date.getDay() + 6) % 7]}
+          {DAY_NAMES[weekdayOfKey(cell.key)]}
         </span>
       ) : null}
       <span
@@ -24,7 +25,7 @@ function DayNumber({ cell, view }: { cell: DayCell; view: CalendarView }) {
               : 'text-ink/30',
         )}
       >
-        {cell.date.getDate()}
+        {cell.dayOfMonth}
       </span>
     </div>
   );
@@ -42,10 +43,12 @@ export function CalendarGrid({
   cells,
   view,
   now,
+  timeZone,
 }: {
   cells: DayCell[];
   view: CalendarView;
   now: Date;
+  timeZone: string;
 }) {
   const withEntries = cells.filter((cell) => cell.entries.length > 0);
 
@@ -71,7 +74,7 @@ export function CalendarGrid({
 
             return (
               <div
-                key={cell.date.toISOString()}
+                key={cell.key}
                 className={cn(
                   'flex min-w-0 flex-col gap-1.5 p-2',
                   view === 'month' ? 'min-h-[124px]' : 'min-h-[260px]',
@@ -86,8 +89,13 @@ export function CalendarGrid({
                 <DayNumber cell={cell} view={view} />
                 <div className="flex flex-col gap-1">
                   {shown.map((entry) => (
-                    <MeetingDetail key={entry.id} entry={entry} now={now}>
-                      <EventChip entry={entry} now={now} dense={view === 'month'} />
+                    <MeetingDetail key={entry.id} entry={entry} now={now} timeZone={timeZone}>
+                      <EventChip
+                        entry={entry}
+                        now={now}
+                        timeZone={timeZone}
+                        dense={view === 'month'}
+                      />
                     </MeetingDetail>
                   ))}
                   {overflow > 0 ? (
@@ -110,7 +118,7 @@ export function CalendarGrid({
           </p>
         ) : (
           withEntries.map((cell) => (
-            <div key={cell.date.toISOString()} className="flex flex-col gap-2">
+            <div key={cell.key} className="flex flex-col gap-2">
               {/* Out-of-period days are marked here too, not only on the desktop
                   grid. They are visible in the agenda but excluded from the stat
                   row, and an unexplained mismatch between the two reads as a
@@ -121,15 +129,14 @@ export function CalendarGrid({
                   cell.isToday ? 'text-ink' : cell.inPeriod ? 'text-ink/50' : 'text-ink/35',
                 )}
               >
-                {DAY_NAMES[(cell.date.getDay() + 6) % 7]} {cell.date.getDate()}{' '}
-                {cell.date.toLocaleDateString(undefined, { month: 'short' })}
+                {DAY_NAMES[weekdayOfKey(cell.key)]} {formatDayMonth(cell.key)}
                 {cell.isToday ? ' · Today' : ''}
                 {!cell.inPeriod && !cell.isToday ? ' · Outside this month' : ''}
               </p>
               <div className="flex flex-col gap-1.5">
                 {cell.entries.map((entry) => (
-                  <MeetingDetail key={entry.id} entry={entry} now={now}>
-                    <EventChip entry={entry} now={now} />
+                  <MeetingDetail key={entry.id} entry={entry} now={now} timeZone={timeZone}>
+                    <EventChip entry={entry} now={now} timeZone={timeZone} />
                   </MeetingDetail>
                 ))}
               </div>

@@ -9,18 +9,8 @@ import {
   isLive,
   type CalendarEntry,
 } from '@/module/dashboard/calendar';
+import { formatLongDate, formatTime } from '@/module/dashboard/zone';
 
-function time(date: Date): string {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function longDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
-}
 
 const RESPONSE_LABELS: Record<string, string> = {
   accepted: 'Yes',
@@ -52,10 +42,12 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 export function MeetingDetail({
   entry,
   now,
+  timeZone,
   children,
 }: {
   entry: CalendarEntry;
   now: Date;
+  timeZone: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -164,8 +156,8 @@ export function MeetingDetail({
               </div>
               <h3 className="text-[19px] leading-[1.15]">{entry.title}</h3>
               <p className="text-[13px] text-ink/70">
-                {longDate(entry.start)} · {time(entry.start)}
-                {entry.end ? `–${time(entry.end)}` : ''}
+                {formatLongDate(entry.start, timeZone)} · {formatTime(entry.start, timeZone)}
+                {entry.end ? `–${formatTime(entry.end, timeZone)}` : ''}
                 {duration ? ` · ${duration}` : ''}
               </p>
             </header>

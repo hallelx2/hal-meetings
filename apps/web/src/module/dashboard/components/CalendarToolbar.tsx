@@ -1,17 +1,14 @@
 import Link from 'next/link';
 import { cn } from '@hal/ui';
-import { addDays, addMonths, startOfWeek, type CalendarView } from '@/module/dashboard/calendar';
+import {
+  addMonthsToKey,
+  startOfWeekKey,
+  type CalendarView,
+} from '@/module/dashboard/calendar';
+import { addDaysToKey, type DayKey } from '@/module/dashboard/zone';
 
-function href(anchor: Date, view: CalendarView): string {
-  const params = new URLSearchParams({
-    view,
-    // Date only. A timestamp would make every navigation a distinct URL and
-    // defeat any caching, for no gain — the grid is a whole-day thing.
-    on: `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, '0')}-${String(
-      anchor.getDate(),
-    ).padStart(2, '0')}`,
-  });
-  return `/dashboard?${params.toString()}`;
+function href(anchor: DayKey, view: CalendarView): string {
+  return `/dashboard?${new URLSearchParams({ view, on: anchor }).toString()}`;
 }
 
 const CONTROL =
@@ -28,22 +25,27 @@ export function CalendarToolbar({
   anchor,
   view,
   label,
-  today,
+  todayKey,
 }: {
-  anchor: Date;
+  anchor: DayKey;
   view: CalendarView;
   label: string;
-  today: Date;
+  todayKey: DayKey;
 }) {
-  const step = view === 'month' ? 1 : 7;
-  const previous = view === 'month' ? addMonths(anchor, -step) : addDays(startOfWeek(anchor), -step);
-  const next = view === 'month' ? addMonths(anchor, step) : addDays(startOfWeek(anchor), step);
+  const previous =
+    view === 'month' ? addMonthsToKey(anchor, -1) : addDaysToKey(startOfWeekKey(anchor), -7);
+  const next =
+    view === 'month' ? addMonthsToKey(anchor, 1) : addDaysToKey(startOfWeekKey(anchor), 7);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex">
-          <Link href={href(previous, view)} aria-label="Previous period" className={cn(CONTROL, 'brutal-border hover:bg-lush-green')}>
+          <Link
+            href={href(previous, view)}
+            aria-label="Previous period"
+            className={cn(CONTROL, 'brutal-border hover:bg-lush-green')}
+          >
             ←
           </Link>
           <Link
@@ -54,7 +56,7 @@ export function CalendarToolbar({
             →
           </Link>
         </div>
-        <Link href={href(today, view)} className={cn(CONTROL, 'brutal-border hover:bg-lush-green')}>
+        <Link href={href(todayKey, view)} className={cn(CONTROL, 'brutal-border hover:bg-lush-green')}>
           Today
         </Link>
         <h2 className="ml-1 min-w-0 truncate text-[20px] leading-none md:text-[24px]">{label}</h2>
