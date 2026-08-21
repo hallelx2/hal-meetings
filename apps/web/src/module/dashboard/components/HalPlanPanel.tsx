@@ -1,5 +1,5 @@
 import { cn } from '@hal/ui';
-import type { HalPlan, HalStage, StageState } from '@/module/dashboard/hal-plan';
+import type { HalPlan, HalPosture, HalStage, StageState } from '@/module/dashboard/hal-plan';
 
 /**
  * The marker beside each stage.
@@ -13,6 +13,24 @@ const MARKERS: Record<StageState, { glyph: string; className: string; label: str
   active: { glyph: '●', className: 'bg-air-blue', label: 'Running now' },
   pending: { glyph: '', className: 'bg-canvas-white', label: 'Not started' },
   blocked: { glyph: '✕', className: 'bg-soft-gray-fill text-ink/40', label: 'Will not run' },
+};
+
+/**
+ * The list is the same seven steps in every posture; only the tense changes.
+ * A meeting that has already gone past gets "would have done" — writing it in
+ * the present tense next to seven blocked markers reads as a promise nobody can
+ * keep any more.
+ */
+const STAGE_LIST_LABELS: Record<HalPosture, string> = {
+  done: 'What Hal did',
+  live: 'What Hal is doing',
+  joining: 'What Hal is doing',
+  missed: 'What Hal would have done',
+  stalled: 'What Hal would have done',
+  failed: 'What Hal would have done',
+  blocked: 'What Hal does, when it can join',
+  unbooked: 'What Hal does, start to finish',
+  booked: 'What Hal does, start to finish',
 };
 
 function Stage({ stage, index, isLast }: { stage: HalStage; index: number; isLast: boolean }) {
@@ -68,7 +86,7 @@ export function HalPlanPanel({ plan }: { plan: HalPlan }) {
 
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-bold uppercase tracking-adora text-ink/45">
-          {plan.posture === 'done' ? 'What Hal did' : 'What Hal does, start to finish'}
+          {STAGE_LIST_LABELS[plan.posture]}
         </p>
         <ol className="flex flex-col">
           {plan.stages.map((stage, index) => (

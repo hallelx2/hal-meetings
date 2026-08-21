@@ -163,3 +163,93 @@ describe('halPlan — the stage list itself', () => {
     }
   });
 });
+
+describe('halPlan — meetings that have already gone past', () => {
+  // NOW is 12:00; this one finished at 10:30.
+  const past = {
+    start: new Date('2026-08-19T10:00:00Z'),
+    end: new Date('2026-08-19T10:30:00Z'),
+  };
+
+  it('does not offer to send Hal into a meeting that has ended', () => {
+    const plan = halPlan(entry({ ...past, status: 'scheduled', policy: 'ask' }), NOW);
+    expect(plan.posture).toBe('missed');
+    expect(plan.sendable).toBe(false);
+    expect(plan.headline).toMatch(/already ended/);
+  });
+
+  it('says a booked meeting never ran, rather than that it is still coming', () => {
+    const plan = halPlan(entry({ ...past, status: 'scheduled', policy: 'auto' }), NOW);
+    expect(plan.posture).toBe('missed');
+    expect(plan.reason).toMatch(/never ran/);
+  });
+
+  it('does not claim any stage happened for a missed meeting', () => {
+    const plan = halPlan(entry({ ...past, status: 'scheduled' }), NOW);
+    expect(plan.stages.every((s) => s.state === 'blocked')).toBe(true);
+  });
+
+  it('ends an endless meeting an hour after it started, matching isLive', () => {
+    const endless = { start: new Date('2026-08-19T09:00:00Z'), end: null };
+    expect(halPlan(entry({ ...endless }), NOW).posture).toBe('missed');
+
+    // Half an hour in, it is still joinable.
+    const recent = { start: new Date('2026-08-19T11:30:00Z'), end: null };
+    expect(halPlan(entry({ ...recent }), NOW).posture).toBe('unbooked');
+  });
+
+  it('still reports a completed run as completed once the meeting is over', () => {
+    // The meeting ending must not overwrite a fact about a run that happened.
+    const plan = halPlan(entry({ ...past, status: 'completed', policy: 'auto' }), NOW);
+    expect(plan.posture).toBe('done');
+  });
+
+  it('stops claiming Hal is live in a meeting that finished hours ago', () => {
+    const plan = halPlan(entry({ ...past, status: 'in-progress', policy: 'auto' }), NOW);
+    expect(plan.posture).toBe('stalled');
+    expect(plan.headline).toMatch(/never reported back/);
+    expect(plan.sendable).toBe(false);
+  });
+
+  it('does the same for a run stuck at joining', () => {
+    expect(halPlan(entry({ ...past, status: 'joining', policy: 'auto' }), NOW).posture).toBe(
+      'stalled',
+    );
+  });
+
+  it('keeps only the stages the stalled status actually evidences', () => {
+    // 'in-progress' is written after join and disclose, so those two happened.
+    // 'joining' evidences nothing beyond an attempt. Neither leaves anything
+    // "pending" — nothing is going to advance it now.
+    const midRun = halPlan(entry({ ...past, status: 'in-progress' }), NOW);
+    expect(midRun.stages.map((s) => s.state)).toEqual([
+      'done',
+      'done',
+      'blocked',
+      'blocked',
+      'blocked',
+      'blocked',
+      'blocked',
+    ]);
+
+    const neverIn = halPlan(entry({ ...past, status: 'joining' }), NOW);
+    expect(neverIn.stages.every((s) => s.state === 'blocked')).toBe(true);
+  });
+
+  it('offers no retry on a failed run once the meeting is over', () => {
+    const over = halPlan(entry({ ...past, status: 'failed', policy: 'auto' }), NOW);
+    expect(over.sendable).toBe(false);
+
+    const stillToCome = halPlan(entry({ status: 'failed', policy: 'auto' }), NOW);
+    expect(stillToCome.sendable).toBe(true);
+  });
+
+  it('distinguishes a live meeting Hal is absent from, from one still to come', () => {
+    const running = entry({
+      start: new Date('2026-08-19T11:30:00Z'),
+      end: new Date('2026-08-19T12:30:00Z'),
+    });
+    expect(halPlan(running, NOW).headline).toMatch(/running now/);
+    expect(halPlan(entry(), NOW).headline).toMatch(/not booked/);
+  });
+});

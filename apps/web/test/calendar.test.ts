@@ -6,6 +6,7 @@ import {
   durationMinutes,
   firstCellKey,
   formatDuration,
+  hasEnded,
   isLive,
   periodStats,
   startOfMonthKey,
@@ -248,6 +249,43 @@ describe('isLive', () => {
   it('gives an endless meeting an hour, not the rest of the day', () => {
     expect(isLive(entry({ start: new Date('2026-08-19T11:30:00Z') }), now)).toBe(true);
     expect(isLive(entry({ start: new Date('2026-08-19T09:00:00Z') }), now)).toBe(false);
+  });
+});
+
+describe('hasEnded', () => {
+  const now = new Date('2026-08-19T12:00:00Z');
+
+  it('is true once the end time has passed', () => {
+    expect(
+      hasEnded(
+        entry({ start: new Date('2026-08-19T11:00:00Z'), end: new Date('2026-08-19T11:30:00Z') }),
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it('is true at the exact moment it ends, where isLive is false', () => {
+    // The two must partition the timeline with no gap and no overlap.
+    const ending = entry({
+      start: new Date('2026-08-19T11:00:00Z'),
+      end: new Date('2026-08-19T12:00:00Z'),
+    });
+    expect(hasEnded(ending, now)).toBe(true);
+    expect(isLive(ending, now)).toBe(false);
+  });
+
+  it('is false for a meeting that has not started', () => {
+    expect(hasEnded(entry({ start: new Date('2026-08-19T14:00:00Z') }), now)).toBe(false);
+  });
+
+  it('gives an endless meeting the same hour isLive gives it', () => {
+    const stale = entry({ start: new Date('2026-08-19T09:00:00Z'), end: null });
+    expect(hasEnded(stale, now)).toBe(true);
+    expect(isLive(stale, now)).toBe(false);
+
+    const recent = entry({ start: new Date('2026-08-19T11:30:00Z'), end: null });
+    expect(hasEnded(recent, now)).toBe(false);
+    expect(isLive(recent, now)).toBe(true);
   });
 });
 
