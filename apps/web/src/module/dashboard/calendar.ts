@@ -34,6 +34,8 @@ export type CalendarEntry = {
   /** Set once Hal has a meetings row for this event. */
   status?: string | null;
   policy?: string | null;
+  /** The agent's own words when a run failed. Never paraphrased for display. */
+  failureReason?: string | null;
   /** Detail, for the panel. */
   description?: string | null;
   location?: string | null;
