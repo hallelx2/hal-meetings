@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
 
   return (
-    <AppShell email={session.email} calendarConnected={session.calendarConnected}>
+    <AppShell email={session.email} calendar={session.calendar}>
       {children}
     </AppShell>
   );

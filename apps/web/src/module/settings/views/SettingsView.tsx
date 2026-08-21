@@ -1,6 +1,7 @@
 import { PageHeader } from '@/module/shell/components/PageHeader';
 import { ConnectCalendarButton } from '@/module/cockpit/components/ConnectCalendarButton';
 import { SessionActions } from '@/module/cockpit/components/SessionActions';
+import type { CalendarConnection } from '@/lib/google-scopes';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -20,14 +21,23 @@ function Row({ label, value }: { label: string; value: string }) {
  * field on the cockpit — nothing here is new behaviour, it has just been given
  * somewhere to live. The privacy notes and account deletion are HAL-830.
  */
+const CONNECTION_COPY: Record<CalendarConnection, string> = {
+  connected:
+    'Connected, read-only. Hal reads your events to know which meetings to join. It never edits your calendar, and the tokens are envelope-encrypted before they touch the database.',
+  'needs-reconnect':
+    'Access was granted, but Hal can no longer renew it — Google issues a renewable token only when consent is given explicitly. Reconnecting restores the sync; nothing else is affected.',
+  'not-connected':
+    'Not connected. Without it Hal cannot join meetings on its own — you will need to paste each Meet link by hand.',
+};
+
 export function SettingsView({
   email,
   name,
-  calendarConnected,
+  calendar,
 }: {
   email: string;
   name: string | null;
-  calendarConnected: boolean;
+  calendar: CalendarConnection;
 }) {
   return (
     <div className="flex flex-col gap-10">
@@ -54,14 +64,16 @@ export function SettingsView({
               Google Calendar
             </p>
             <p className="max-w-[60ch] text-[16px] leading-relaxed text-ink/80">
-              {calendarConnected
-                ? 'Connected, read-only. Hal reads your events to know which meetings to join. It never edits your calendar, and the tokens are envelope-encrypted before they touch the database.'
-                : 'Not connected. Without it Hal cannot join meetings on its own — you will need to paste each Meet link by hand.'}
+              {CONNECTION_COPY[calendar]}
             </p>
           </div>
-          {calendarConnected ? null : (
+          {calendar === 'connected' ? null : (
             <div>
-              <ConnectCalendarButton next="/settings" variant="secondary" />
+              <ConnectCalendarButton
+                next="/settings"
+                variant="secondary"
+                label={calendar === 'needs-reconnect' ? 'Reconnect Google Calendar' : undefined}
+              />
             </div>
           )}
         </div>
@@ -70,7 +82,7 @@ export function SettingsView({
       <section className="flex flex-col gap-4">
         <h2 className="text-[22px] leading-[1.1]">Session</h2>
         <div className="p-6 brutal-border-2 md:p-8">
-          <SessionActions googleConnected={calendarConnected} />
+          <SessionActions googleConnected={calendar !== 'not-connected'} />
         </div>
       </section>
 

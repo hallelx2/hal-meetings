@@ -62,3 +62,28 @@ export function hasCalendarAccess(scopes: readonly string[]): boolean {
   const granted = new Set(scopes);
   return CALENDAR_SCOPES.every((scope) => granted.has(scope));
 }
+
+/**
+ * What the UI is allowed to say about Calendar.
+ *
+ * `hasCalendarAccess` answers *was the calendar ever granted*. The sync needs a
+ * different question answered: *can I get a token right now*. Those diverge the
+ * moment a refresh token goes missing — Google keeps reporting the full
+ * accumulated grant via `include_granted_scopes`, so the scopes still look
+ * perfect while nothing can actually be fetched.
+ *
+ * Left as two separate checks, the sidebar said "Calendar on" while the page
+ * beside it said "Calendar disconnected". One function, so they cannot disagree.
+ */
+export type CalendarConnection = 'connected' | 'needs-reconnect' | 'not-connected';
+
+export function calendarConnection(
+  tokens: ReadonlyArray<{ scopes?: readonly string[] | null; refreshTokenCt?: unknown }>,
+): CalendarConnection {
+  const granted = tokens.filter((token) => hasCalendarAccess(token.scopes ?? []));
+  if (granted.length === 0) return 'not-connected';
+  // Only a token that can be renewed is worth calling connected.
+  return granted.some((token) => token.refreshTokenCt != null)
+    ? 'connected'
+    : 'needs-reconnect';
+}

@@ -22,7 +22,10 @@ export {
 export type GoogleOauthStore = {
   users: Pick<UsersRepository, 'findByEmail' | 'create'>;
   workspaces: Pick<WorkspacesRepository, 'findForUser' | 'createPersonal'>;
-  oauthTokens: Pick<OauthTokensRepository, 'upsert' | 'deleteForUserProvider' | 'findForUser'>;
+  oauthTokens: Pick<
+    OauthTokensRepository,
+    'upsert' | 'deleteForUserProvider' | 'findForUser' | 'findByProviderAccount'
+  >;
   auditLog: Pick<AuditLogRepository, 'record'>;
 };
 
@@ -101,21 +104,45 @@ export async function persistGoogleOauth(
     throw new Error('access token encrypt produced plaintext');
   }
 
+  // A refresh token is issued only when consent is forced. Sign-in does not
+  // force it — deliberately, so returning users stop re-approving a grant they
+  // already gave — which means an ordinary sign-in arrives here with
+  // `refreshToken: null` while a perfectly good one is already stored.
+  //
+  // Writing that null through would destroy the only credential that can renew
+  // calendar access, and nothing short of a full reconsent would bring it back.
+  // The stored token is kept whenever the provider does not offer a new one.
+  const existing = await input.store.oauthTokens.findByProviderAccount(
+    user.id,
+    'google',
+    input.providerAccountId,
+  );
+
   const refreshTokenCt = input.refreshToken
     ? await input.envelope.encryptString({
         wrappedDek: user.dekWrapped,
         keyId: user.dekKmsKeyId,
         plaintext: input.refreshToken,
       })
-    : null;
+    : (existing?.refreshTokenCt ?? null);
   if (input.refreshToken && refreshTokenCt && ciphertextContainsPlaintext(refreshTokenCt, input.refreshToken)) {
     throw new Error('refresh token encrypt produced plaintext');
   }
 
   // Same rule as the OAuth callback, same function: nothing from the provider
   // means assume identity, never the full grant.
-  const scopes =
+  const reported =
     input.scopes.length > 0 ? input.scopes : resolveGrantedScopes(null);
+
+  // An OAuth grant accumulates; it does not shrink because one response
+  // mentioned less. An identity-only sign-in reports only identity scopes, and
+  // replacing the stored set with those would report `not-connected` while the
+  // preserved refresh token still grants calendar — the same contradiction this
+  // change exists to remove, arriving by a different route.
+  //
+  // If access really is withdrawn at Google, the refresh fails with
+  // invalid_grant and surfaces as reconnect, so the union cannot strand anyone.
+  const scopes = [...new Set([...(existing?.scopes ?? []), ...reported])];
 
   await input.store.oauthTokens.upsert({
     workspaceId: workspace.id,

@@ -4,15 +4,20 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getAuth } from '@/lib/auth';
 import { getRepos } from '@/server/hal';
-import { hasCalendarAccess, normalizeEmail } from '@/server/google-oauth';
+import { normalizeEmail } from '@/server/google-oauth';
+import { calendarConnection, type CalendarConnection } from '@/lib/google-scopes';
 
 export type AppSession = {
   email: string;
   name: string | null;
   /** Hal's own user row. Null until the OAuth after-hook has written it. */
   userId: string | null;
-  /** True only when the stored grant actually covers the calendar scopes. */
-  calendarConnected: boolean;
+  /**
+   * The one answer every surface uses. Not a boolean, because
+   * "granted but unrenewable" is a real third state that needs its own message
+   * and its own action.
+   */
+  calendar: CalendarConnection;
 };
 
 /**
@@ -39,6 +44,6 @@ export async function requireSession(): Promise<AppSession> {
     email,
     name: session.user.name ?? user?.name ?? null,
     userId: user?.id ?? null,
-    calendarConnected: tokens.some((token) => hasCalendarAccess(token.scopes ?? [])),
+    calendar: calendarConnection(tokens),
   };
 }
