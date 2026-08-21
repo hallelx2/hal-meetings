@@ -39,6 +39,9 @@ export function createRuntime(
       const opts: ZoomRuntimeOptions = {
         pulseSink: env.HAL_PULSE_SINK ?? 'halsink',
         headless: env.HAL_HEADLESS !== 'false',
+        // Shared with Meet: one signed-in browser profile on the box is the
+        // bot's identity on both platforms.
+        userDataDir: env.HAL_USER_DATA_DIR,
         passcode: env.ZOOM_PASSCODE,
       };
       return new ZoomRuntime(opts);

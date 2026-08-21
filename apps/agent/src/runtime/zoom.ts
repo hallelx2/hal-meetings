@@ -10,6 +10,16 @@ export interface ZoomRuntimeOptions {
   headless?: boolean;
   /** Slow-mo for debug (milliseconds between actions). 0 in prod. */
   slowMoMs?: number;
+  /**
+   * Persistent Chromium profile directory.
+   *
+   * This is how Hal joins meetings restricted to signed-in Zoom users: sign the
+   * profile in once, by hand, and every later join reuses that session. There
+   * is no OAuth path that grants a bot the right to join a meeting — Zoom's
+   * OAuth scopes cover the REST API, not attendance — so a signed-in browser
+   * profile is the mechanism, not a workaround for one.
+   */
+  userDataDir?: string;
   /** How long to wait for admission before giving up. Default 120s. */
   admissionTimeoutMs?: number;
   /**
@@ -61,25 +71,44 @@ export class ZoomRuntime implements BotRuntime {
       throw new Error(`[@hal/agent zoom] not a Zoom meeting link: ${joinOpts.meetingUrl}`);
     }
 
-    const browser: Browser = await chromium.launch({
-      headless: this.opts.headless ?? true,
-      slowMo: this.opts.slowMoMs ?? 0,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--use-fake-ui-for-media-stream',
-        '--autoplay-policy=no-user-gesture-required',
-        `--alsa-output-device=${this.opts.pulseSink}`,
-      ],
-    });
+    const launchArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-blink-features=AutomationControlled',
+      '--use-fake-ui-for-media-stream',
+      '--autoplay-policy=no-user-gesture-required',
+      `--alsa-output-device=${this.opts.pulseSink}`,
+    ];
+    const userAgent =
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
-    const context = await browser.newContext({
-      permissions: ['microphone', 'camera'],
-      userAgent:
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-      viewport: { width: 1280, height: 800 },
-    });
+    let browser: Browser | null = null;
+    let context: BrowserContext;
+
+    if (this.opts.userDataDir) {
+      // A persistent context *is* the browser — there is no separate instance
+      // to close, which is why cleanup has to tolerate `browser()` being null.
+      context = await chromium.launchPersistentContext(this.opts.userDataDir, {
+        headless: this.opts.headless ?? true,
+        slowMo: this.opts.slowMoMs ?? 0,
+        args: launchArgs,
+        permissions: ['microphone', 'camera'],
+        userAgent,
+        viewport: { width: 1280, height: 800 },
+      });
+      log.info({ userDataDir: this.opts.userDataDir }, 'using persistent Zoom profile');
+    } else {
+      browser = await chromium.launch({
+        headless: this.opts.headless ?? true,
+        slowMo: this.opts.slowMoMs ?? 0,
+        args: launchArgs,
+      });
+      context = await browser.newContext({
+        permissions: ['microphone', 'camera'],
+        userAgent,
+        viewport: { width: 1280, height: 800 },
+      });
+    }
 
     await context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
