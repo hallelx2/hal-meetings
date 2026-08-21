@@ -1,4 +1,5 @@
 import type { EnvelopeService } from '@hal/crypto';
+import { parseJoinableUrl } from '@hal/meeting-links';
 import type {
   JobsRepository,
   MeetingsRepository,
@@ -8,8 +9,6 @@ import type {
   WorkspacesRepository,
 } from '@hal/db';
 
-const MEET_HOST = /(^|\.)meet\.google\.com$/i;
-const MEET_CODE = /^[a-z]{3}-[a-z]{4}-[a-z]{3}$/i;
 
 export type JoinStore = {
   users: Pick<UsersRepository, 'findByEmail'>;
@@ -18,20 +17,15 @@ export type JoinStore = {
   jobs: Pick<JobsRepository, 'enqueue'>;
 };
 
+/**
+ * Kept as a named export because the API route and its tests speak in terms of
+ * "is this a link Hal can join". It now covers Zoom as well as Meet, so the
+ * name is the only Meet-specific thing left about it.
+ *
+ * @deprecated prefer `parseJoinableUrl` from `@hal/meeting-links`.
+ */
 export function parseMeetUrl(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  let url: URL;
-  try {
-    url = new URL(trimmed);
-  } catch {
-    return null;
-  }
-  if (url.protocol !== 'https:') return null;
-  if (!MEET_HOST.test(url.hostname)) return null;
-  const code = url.pathname.replace(/^\//, '').split('/')[0] ?? '';
-  if (!MEET_CODE.test(code)) return null;
-  return `https://meet.google.com/${code.toLowerCase()}`;
+  return parseJoinableUrl(raw)?.url ?? null;
 }
 
 export async function enqueueJoinMeeting(input: {
@@ -40,8 +34,9 @@ export async function enqueueJoinMeeting(input: {
   user: UserRow;
   url: string;
 }): Promise<{ meetingId: string; jobId: string }> {
-  const url = parseMeetUrl(input.url);
-  if (!url) throw new Error('invalid_meet_url');
+  const link = parseJoinableUrl(input.url);
+  if (!link) throw new Error('invalid_meet_url');
+  const url = link.url;
 
   let workspace: WorkspaceRow | null = await input.store.workspaces.findForUser(input.user.id);
   if (!workspace) {
@@ -57,9 +52,9 @@ export async function enqueueJoinMeeting(input: {
   const meeting = await input.store.meetings.create({
     workspaceId: workspace.id,
     userId: input.user.id,
-    platform: 'meet',
+    platform: link.platform,
     externalUrl: url,
-    title: 'Pasted Meet',
+    title: link.platform === 'zoom' ? 'Pasted Zoom' : 'Pasted Meet',
     policy: 'auto',
     mode: 'listen',
     status: 'scheduled',

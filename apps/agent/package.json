@@ -2,7 +2,7 @@
   "name": "@hal/agent",
   "version": "0.0.0",
   "private": true,
-  "description": "The Hal bot runtime. Joins Google Meet (Playwright headless), Zoom (Meeting SDK), and Microsoft Teams (Bot Framework) on a user's behalf. Captures audio, hands it to @hal/media for transcription, encrypts results via @hal/crypto, persists via @hal/db.",
+  "description": "The Hal bot runtime. Joins Google Meet and Zoom by driving their web clients with Playwright, and Microsoft Teams (Bot Framework, not yet implemented) on a user's behalf. Captures audio, hands it to @hal/media for transcription, encrypts results via @hal/crypto, persists via @hal/db.",
   "type": "module",
   "bin": {
     "hal-agent": "./src/cli.ts"
@@ -24,7 +24,8 @@
     "commander": "^13.0.0",
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
-    "playwright": "^1.49.1"
+    "playwright": "^1.49.1",
+    "@hal/meeting-links": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",

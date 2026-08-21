@@ -3,18 +3,28 @@
  *
  * Pure and client-safe: the dashboard badges events with this, and the sync
  * writes rows with it, so both sides must agree on what counts as a Meet link.
+ *
+ * Detection and joinability are deliberately two different questions answered
+ * by two different mechanisms. Detection is a broad regex, because the goal is
+ * to notice a Zoom link even when it is malformed and say so. Joinability is
+ * `parseJoinableUrl` — the *same* function the join endpoint and the agent
+ * runtime use — because a green "Hal can join" badge over a link the joiner
+ * will reject is a lie the user only discovers after pressing the button.
  */
 
-/** Platforms Hal can recognise. Only `meet` is joinable today. */
+import { parseJoinableUrl } from '@hal/meeting-links';
+
+/** Platforms Hal can recognise. `meet` and `zoom` are joinable; Teams is not. */
 export type ConferencePlatform = 'meet' | 'zoom' | 'teams';
 
 export type Conferencing = {
   platform: ConferencePlatform;
   url: string;
   /**
-   * Whether Hal can actually join. Zoom and Teams are detected and shown so the
-   * roadmap is legible — hiding them would read as "Hal saw nothing", which is
-   * a different and more worrying message than "Hal can't do this one yet".
+   * Whether Hal can actually join, decided by the same parser the joiner uses.
+   * Teams is detected and shown so the roadmap is legible — hiding it would
+   * read as "Hal saw nothing", which is a different and more worrying message
+   * than "Hal can't do this one yet".
    */
   joinable: boolean;
 };
@@ -34,10 +44,10 @@ const MEET = /https:\/\/meet\.google\.com\/[a-z0-9-]+/i;
 const ZOOM = /https:\/\/(?:[a-z0-9-]+\.)*zoom\.us\/(?:j|w|s|my)\/[^\s<>"]+/i;
 const TEAMS = /https:\/\/teams\.(?:microsoft|live)\.com\/[^\s<>"]+/i;
 
-const MATCHERS: Array<{ platform: ConferencePlatform; pattern: RegExp; joinable: boolean }> = [
-  { platform: 'meet', pattern: MEET, joinable: true },
-  { platform: 'zoom', pattern: ZOOM, joinable: false },
-  { platform: 'teams', pattern: TEAMS, joinable: false },
+const MATCHERS: Array<{ platform: ConferencePlatform; pattern: RegExp }> = [
+  { platform: 'meet', pattern: MEET },
+  { platform: 'zoom', pattern: ZOOM },
+  { platform: 'teams', pattern: TEAMS },
 ];
 
 /**
@@ -73,10 +83,13 @@ function trimTrailingPunctuation(url: string): string {
 
 function firstMatch(text: string | null | undefined): Conferencing | null {
   if (!text) return null;
-  for (const { platform, pattern, joinable } of MATCHERS) {
+  for (const { platform, pattern } of MATCHERS) {
     const found = text.match(pattern);
     if (found?.[0]) {
-      return { platform, url: trimTrailingPunctuation(found[0]), joinable };
+      const url = trimTrailingPunctuation(found[0]);
+      // One source of truth. If the joiner would not take this link, the badge
+      // must not promise that it would.
+      return { platform, url, joinable: parseJoinableUrl(url) !== null };
     }
   }
   return null;

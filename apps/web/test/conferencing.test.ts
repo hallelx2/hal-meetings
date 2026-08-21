@@ -32,16 +32,18 @@ describe('detectConferencing', () => {
     ).toBeNull();
   });
 
-  it('detects Zoom and Teams but marks them not joinable', () => {
-    // Shown rather than hidden: "Hal can't do this one yet" is a different
-    // message from "Hal saw nothing", and only one of them is true.
-    const zoom = detectConferencing({ location: 'https://acme.zoom.us/j/98765432' });
+  it('marks a well-formed Zoom link joinable', () => {
+    const zoom = detectConferencing({ location: 'https://acme.zoom.us/j/98765432109' });
     expect(zoom).toEqual({
       platform: 'zoom',
-      url: 'https://acme.zoom.us/j/98765432',
-      joinable: false,
+      url: 'https://acme.zoom.us/j/98765432109',
+      joinable: true,
     });
+  });
 
+  it('still detects Teams, and still cannot join it', () => {
+    // Shown rather than hidden: "Hal can't do this one yet" is a different
+    // message from "Hal saw nothing", and only one of them is true.
     const teams = detectConferencing({
       description: 'Join here: https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc',
     });
@@ -49,8 +51,17 @@ describe('detectConferencing', () => {
     expect(teams?.joinable).toBe(false);
   });
 
+  it('detects a malformed Zoom link but does not promise to join it', () => {
+    // The badge and the joiner read the same parser. A short meeting ID is
+    // still recognisably Zoom — worth showing — but the joiner would reject
+    // it, so the badge must not claim otherwise.
+    const short = detectConferencing({ location: 'https://zoom.us/j/123' });
+    expect(short?.platform).toBe('zoom');
+    expect(short?.joinable).toBe(false);
+  });
+
   it('handles a plain zoom.us host as well as a vanity subdomain', () => {
-    expect(detectConferencing({ location: 'https://zoom.us/j/123' })?.platform).toBe('zoom');
+    expect(detectConferencing({ location: 'https://zoom.us/j/91234567890' })?.platform).toBe('zoom');
   });
 
   it('prefers the structured field over free text', () => {

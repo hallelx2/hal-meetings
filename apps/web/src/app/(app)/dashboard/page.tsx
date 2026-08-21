@@ -3,6 +3,7 @@ import { loadDashboardCalendar, type CalendarState } from '@/server/dashboard';
 import { DashboardView } from '@/module/dashboard/views/DashboardView';
 import type { CalendarView } from '@/module/dashboard/calendar';
 import { DEFAULT_TIME_ZONE, dayKeyOf, parseDayKey, type DayKey } from '@/module/dashboard/zone';
+import { DEFAULT_BOT_NAME_TEMPLATE, renderBotName } from '@hal/meeting-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,12 @@ export default async function Page({
       now={now}
       todayKey={dayKeyOf(now, timeZone)}
       timeZone={timeZone}
+      // Same template and same renderer the agent uses, so the name on screen
+      // is the name in the lobby. HAL_BOT_DISPLAY_NAME overrides both.
+      botName={renderBotName(
+        process.env.HAL_BOT_DISPLAY_NAME ?? DEFAULT_BOT_NAME_TEMPLATE,
+        session.name ?? session.email.split('@')[0],
+      )}
     />
   );
 }

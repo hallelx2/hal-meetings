@@ -66,6 +66,7 @@ export function DashboardView({
   now,
   todayKey,
   timeZone,
+  botName,
 }: {
   name: string | null;
   calendar: CalendarState;
@@ -74,6 +75,8 @@ export function DashboardView({
   now: Date;
   todayKey: DayKey;
   timeZone: string;
+  /** The exact name Hal appears under, so the screen and the agent agree. */
+  botName: string;
 }) {
   const firstName = name?.split(' ')[0] ?? null;
   const entries = calendar.kind === 'ready' ? calendar.entries : [];
@@ -92,7 +95,7 @@ export function DashboardView({
             ? 'Your calendar, and what Hal can do with it.'
             : 'Send Hal into a call, or connect your calendar so it can join on its own.'
         }
-        action={<SendHalDialog />}
+        action={<SendHalDialog botName={botName} />}
       />
 
       {calendar.kind === 'not-connected' ? <ConnectPrompt /> : null}

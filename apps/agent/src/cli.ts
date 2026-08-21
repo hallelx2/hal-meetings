@@ -6,6 +6,7 @@
  *   hal-agent join <url> --user <id> [...]    Run a one-shot session against a meeting URL.
  *   hal-agent worker                          Run as a long-lived job consumer.
  */
+import { renderBotName } from '@hal/meeting-links';
 import { Command } from 'commander';
 import { hostname } from 'node:os';
 import { loadConfig } from './config';
@@ -104,7 +105,7 @@ program
           meetingTitle: opts.title,
           mode: opts.mode as 'listen' | 'chat' | 'speak',
           disclosure: cfg.botDisclosure.replace('{{user}}', user.name ?? user.email.split('@')[0]!),
-          botDisplayName: cfg.botDisplayName.replace('{{user}}', user.name ?? user.email.split('@')[0]!),
+          botDisplayName: renderBotName(cfg.botDisplayName, user.name ?? user.email.split('@')[0]!),
         },
       );
       log.info(

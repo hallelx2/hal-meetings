@@ -16,7 +16,7 @@ import { dismissPopovers } from '@/module/dashboard/popover-bus';
  * escape handling, backdrop click and the ARIA wiring are all needed here and
  * all routinely wrong when written by hand.
  */
-export function SendHalDialog() {
+export function SendHalDialog({ botName }: { botName: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -50,15 +50,16 @@ export function SendHalDialog() {
                 Send Hal to a meeting
               </Dialog.Title>
               <Dialog.Description className="text-[15px] leading-relaxed text-ink/75">
-                Paste a Google Meet link. Hal joins, announces itself, transcribes, and emails you
-                the summary when the call ends.
+                Paste a Google Meet or Zoom link. Hal joins as{' '}
+                <strong className="font-bold">{botName}</strong>, announces itself in the chat,
+                transcribes, and emails you the summary when the call ends.
               </Dialog.Description>
             </div>
 
             {/* Deliberately does not close on success. The confirmation carries
                 an instruction the user has to act on — admit the guest named Hal
                 in the Meet lobby — and a modal that vanishes takes that with it. */}
-            <JoinMeetForm />
+            <JoinMeetForm botName={botName} />
 
             <Dialog.Close asChild>
               <button
