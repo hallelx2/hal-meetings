@@ -4,6 +4,13 @@
  * database or a clock.
  */
 
+export type Attendee = {
+  email: string;
+  /** Google's response status: accepted | declined | tentative | needsAction. */
+  response: string | null;
+  isSelf: boolean;
+};
+
 export type CalendarEntry = {
   id: string;
   title: string;
@@ -12,9 +19,34 @@ export type CalendarEntry = {
   platform: 'meet' | 'zoom' | 'teams' | null;
   url: string | null;
   joinable: boolean;
+  /** Set once Hal has a meetings row for this event. */
   status?: string | null;
   policy?: string | null;
+  /** Detail, for the panel. Fetched from Google and previously discarded. */
+  description?: string | null;
+  location?: string | null;
+  organizer?: string | null;
+  attendees?: Attendee[];
+  /** The event's own page on Google Calendar. */
+  htmlLink?: string | null;
 };
+
+/** Minutes between start and end, or null when the event has no end. */
+export function durationMinutes(entry: CalendarEntry): number | null {
+  if (!entry.end) return null;
+  const span = entry.end.getTime() - entry.start.getTime();
+  return span > 0 ? Math.round(span / 60_000) : null;
+}
+
+/** "1h 30m", "45m", or null. */
+export function formatDuration(minutes: number | null): string | null {
+  if (minutes === null) return null;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest}m`;
+  if (rest === 0) return `${hours}h`;
+  return `${hours}h ${rest}m`;
+}
 
 export type CalendarView = 'month' | 'week';
 

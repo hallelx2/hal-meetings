@@ -65,6 +65,20 @@ export async function loadDashboardCalendar(
         joinable: meeting.conferencing?.joinable ?? false,
         status: row?.status ?? null,
         policy: row?.policy ?? null,
+        description: meeting.event.description?.trim() || null,
+        location: meeting.event.location?.trim() || null,
+        organizer:
+          meeting.event.organizer?.displayName?.trim() ||
+          meeting.event.organizer?.email?.trim() ||
+          null,
+        attendees: (meeting.event.attendees ?? [])
+          .filter((a) => a?.email)
+          .map((a) => ({
+            email: a.email!,
+            response: a.responseStatus ?? null,
+            isSelf: a.self === true,
+          })),
+        htmlLink: meeting.event.htmlLink ?? null,
       };
     });
 

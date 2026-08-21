@@ -33,7 +33,15 @@ export type GoogleCalendarEvent = CalendarEventLike & {
   summary?: string | null;
   start?: { dateTime?: string | null; date?: string | null } | null;
   end?: { dateTime?: string | null; date?: string | null } | null;
-  attendees?: Array<{ email?: string | null; responseStatus?: string | null }> | null;
+  attendees?: Array<{
+    email?: string | null;
+    responseStatus?: string | null;
+    self?: boolean | null;
+    organizer?: boolean | null;
+  }> | null;
+  organizer?: { email?: string | null; displayName?: string | null } | null;
+  /** The event's own page on Google Calendar. */
+  htmlLink?: string | null;
 };
 
 type Deps = {
