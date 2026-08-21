@@ -24,6 +24,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/crypto/package.json packages/crypto/package.json
 COPY packages/media/package.json packages/media/package.json
+COPY packages/meeting-links/package.json packages/meeting-links/package.json
 COPY packages/ui/package.json packages/ui/package.json
 COPY packages/design-tokens/package.json packages/design-tokens/package.json
 
@@ -37,6 +38,7 @@ COPY apps/agent apps/agent
 COPY packages/db packages/db
 COPY packages/crypto packages/crypto
 COPY packages/media packages/media
+COPY packages/meeting-links packages/meeting-links
 
 # Pulse config: create a null sink named 'halsink' on every container start.
 COPY apps/agent/docker/pulse.pa /etc/pulse/system.pa
