@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'bun:test';
-import { parseJoinableUrl, parseMeetUrl, parseZoomUrl } from '@hal/meeting-links';
+import {
+  DEFAULT_BOT_NAME_TEMPLATE,
+  parseJoinableUrl,
+  parseMeetUrl,
+  parseZoomUrl,
+  renderBotName,
+} from '@hal/meeting-links';
 
 describe('parseZoomUrl', () => {
   it('reads a standard invitation link', () => {
@@ -112,5 +118,37 @@ describe('parseJoinableUrl', () => {
 
   it('returns null for Teams, which is still not joinable', () => {
     expect(parseJoinableUrl('https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc')).toBeNull();
+  });
+});
+
+describe('renderBotName', () => {
+  it('puts the user in the name by default', () => {
+    // The host decides on the name alone — the disclosure cannot be posted
+    // until after admission — so an anonymous "Hal · AI" is asking to be
+    // declined.
+    expect(DEFAULT_BOT_NAME_TEMPLATE).toContain('{{user}}');
+    expect(renderBotName(DEFAULT_BOT_NAME_TEMPLATE, 'Halleluyah')).toBe(
+      'Hal · AI for Halleluyah',
+    );
+  });
+
+  it('falls back to the first name before it truncates characters', () => {
+    const long = renderBotName(DEFAULT_BOT_NAME_TEMPLATE, 'Halleluyah Darasimi Oludele', 30);
+    expect(long).toBe('Hal · AI for Halleluyah');
+    expect(long).not.toContain('…');
+  });
+
+  it('hard-truncates only when even the first name will not fit', () => {
+    const out = renderBotName(DEFAULT_BOT_NAME_TEMPLATE, 'Bartholomewlongname', 20);
+    expect(out.length).toBeLessThanOrEqual(20);
+  });
+
+  it('does not leave a dangling separator when there is no user name', () => {
+    expect(renderBotName('Hal · AI for {{user}}', null).trim()).toBe('Hal · AI for');
+    expect(renderBotName('Hal · AI for {{user}}', '   ').trim()).toBe('Hal · AI for');
+  });
+
+  it('leaves a template with no placeholder alone', () => {
+    expect(renderBotName('Recording Bot', 'Halleluyah')).toBe('Recording Bot');
   });
 });

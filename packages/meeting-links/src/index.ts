@@ -1,5 +1,6 @@
 export { parseMeetUrl, isMeetUrl, type MeetLink } from './meet';
 export { parseZoomUrl, isZoomUrl, type ZoomLink } from './zoom';
+export { DEFAULT_BOT_NAME_TEMPLATE, MAX_BOT_NAME_LENGTH, renderBotName } from './bot';
 
 import { parseMeetUrl } from './meet';
 import { parseZoomUrl } from './zoom';

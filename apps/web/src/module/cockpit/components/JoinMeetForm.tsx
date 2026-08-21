@@ -3,7 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export function JoinMeetForm() {
+/**
+ * @param botName exactly what Hal will be called in the participant list.
+ * Passed in rather than hardcoded so the instruction on screen names the same
+ * guest the agent actually types into the join form. If those two drift, the
+ * user is told to admit somebody who never appears — and an unexplained bot in
+ * the lobby is one a host is right to decline.
+ */
+export function JoinMeetForm({ botName }: { botName: string }) {
   const router = useRouter();
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
@@ -32,7 +39,7 @@ export function JoinMeetForm() {
           return;
         }
         setUrl('');
-        setMessage('Hal is joining. Admit the guest named Hal in the Meet lobby.');
+        setMessage(`Hal is joining. Let “${botName}” in when it asks — it waits ten minutes.`);
         router.refresh();
       }}
     >

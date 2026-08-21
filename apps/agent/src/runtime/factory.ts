@@ -9,6 +9,7 @@ export interface RuntimeFactoryEnv {
   HAL_PULSE_SINK?: string;
   HAL_HEADLESS?: string;
   HAL_USER_DATA_DIR?: string;
+  HAL_ADMISSION_TIMEOUT_MS?: string;
   // Zoom — the web client needs no Marketplace credentials at all.
   ZOOM_PASSCODE?: string;
   // Teams
@@ -16,6 +17,16 @@ export interface RuntimeFactoryEnv {
   MS_APP_PASSWORD?: string;
   MS_TENANT_ID?: string;
   MS_BOT_CALLBACK_URL?: string;
+}
+
+/**
+ * Ten minutes by default. A host mid-sentence does not look at the admit
+ * prompt for a while, and Hal is routinely sent before a meeting starts —
+ * treating that as a refusal was the old behaviour and it was wrong.
+ */
+function admissionTimeout(env: RuntimeFactoryEnv): number {
+  const raw = Number(env.HAL_ADMISSION_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 600_000;
 }
 
 export function createRuntime(
@@ -28,6 +39,7 @@ export function createRuntime(
         pulseSink: env.HAL_PULSE_SINK ?? 'halsink',
         headless: env.HAL_HEADLESS !== 'false',
         userDataDir: env.HAL_USER_DATA_DIR,
+        admissionTimeoutMs: admissionTimeout(env),
       };
       return new MeetRuntime(meetOpts);
     }
@@ -42,6 +54,7 @@ export function createRuntime(
         // Shared with Meet: one signed-in browser profile on the box is the
         // bot's identity on both platforms.
         userDataDir: env.HAL_USER_DATA_DIR,
+        admissionTimeoutMs: admissionTimeout(env),
         passcode: env.ZOOM_PASSCODE,
       };
       return new ZoomRuntime(opts);

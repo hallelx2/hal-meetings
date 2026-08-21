@@ -1,3 +1,4 @@
+import { renderBotName } from '@hal/meeting-links';
 import type { JobRow, Repositories } from '@hal/db';
 import type { EnvelopeService, Kms } from '@hal/crypto';
 import type { SttProvider, LlmProvider } from '@hal/media';
@@ -58,7 +59,7 @@ export function makeJoinMeetingHandler(ctx: HandlerContext) {
     const { runtime, audio } = ctx.resolveRuntime(platform);
 
     const userName = user.name ?? user.email.split('@')[0]!;
-    const botDisplayName = ctx.botDisplayName.replace('{{user}}', userName);
+    const botDisplayName = renderBotName(ctx.botDisplayName, userName);
     const disclosure = ctx.botDisclosure.replace('{{user}}', userName);
 
     await runMeetingSession(
