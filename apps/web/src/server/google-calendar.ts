@@ -212,15 +212,25 @@ export async function syncCalendarWindow(
   const raw = await fetchCalendarEvents(deps, window);
   const events = raw.map(toSyncedMeeting).filter((m): m is SyncedMeeting => m !== null);
 
+  // Read the window's existing rows once and index them, rather than a lookup
+  // per event. A busy week is otherwise ~2N sequential round trips on a page
+  // render, and this runs on every dashboard load.
+  const existingRows = await deps.store.meetings.listInWindow({
+    userId: deps.user.id,
+    from: window.from,
+    to: window.to,
+  });
+  const byEventId = new Map(
+    existingRows
+      .filter((row) => row.externalEventId && row.platform === 'meet')
+      .map((row) => [row.externalEventId!, row]),
+  );
+
   let synced = 0;
   for (const meeting of events) {
     if (!meeting.conferencing?.joinable) continue;
 
-    const existing = await deps.store.meetings.findByExternalEvent(
-      deps.user.id,
-      'meet',
-      meeting.event.id,
-    );
+    const existing = byEventId.get(meeting.event.id);
 
     // Never clobber a meeting the agent is already working on, or the policy the
     // user chose for it. The calendar owns the schedule; Hal owns the rest.

@@ -72,6 +72,40 @@ describe('detectConferencing', () => {
     expect(detectConferencing({})).toBeNull();
   });
 
+  it('does not swallow punctuation belonging to the sentence', () => {
+    // These links live mid-prose in a description far more often than alone.
+    expect(detectConferencing({ description: 'Join https://acme.zoom.us/j/98765432.' })?.url).toBe(
+      'https://acme.zoom.us/j/98765432',
+    );
+    expect(
+      detectConferencing({ description: 'Dial https://acme.zoom.us/j/98765432, or call in' })?.url,
+    ).toBe('https://acme.zoom.us/j/98765432');
+    expect(
+      detectConferencing({ description: 'Zoom (https://acme.zoom.us/j/98765432)' })?.url,
+    ).toBe('https://acme.zoom.us/j/98765432');
+  });
+
+  it('keeps balanced brackets that belong to the URL', () => {
+    expect(
+      detectConferencing({
+        description: 'https://teams.microsoft.com/l/meetup-join/a(b)c',
+      })?.url,
+    ).toBe('https://teams.microsoft.com/l/meetup-join/a(b)c');
+  });
+
+  it('matches regardless of host case', () => {
+    expect(detectConferencing({ hangoutLink: 'https://MEET.GOOGLE.COM/abc-defg-hij' })?.platform).toBe(
+      'meet',
+    );
+  });
+
+  it('takes the first link when a description lists several', () => {
+    const found = detectConferencing({
+      description: 'https://acme.zoom.us/j/111 and https://acme.zoom.us/j/222',
+    });
+    expect(found?.url).toBe('https://acme.zoom.us/j/111');
+  });
+
   it('does not choke on nulls from the API', () => {
     expect(
       detectConferencing({

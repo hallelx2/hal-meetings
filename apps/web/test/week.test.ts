@@ -97,6 +97,26 @@ describe('isLive', () => {
     ).toBe(false);
   });
 
+  it('is not live at the exact moment it ends', () => {
+    // Boundary, pinned: a meeting whose end equals now has finished. Left
+    // unasserted, flipping <= to < would silently keep it on screen.
+    expect(
+      isLive(
+        entry({ start: new Date('2026-08-19T11:00:00'), end: new Date('2026-08-19T12:00:00') }),
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('is live at the exact moment it starts', () => {
+    expect(
+      isLive(
+        entry({ start: new Date('2026-08-19T12:00:00'), end: new Date('2026-08-19T13:00:00') }),
+        now,
+      ),
+    ).toBe(true);
+  });
+
   it('gives an endless meeting an hour, not the rest of the day', () => {
     expect(isLive(entry({ start: new Date('2026-08-19T11:30:00'), end: null }), now)).toBe(true);
     expect(isLive(entry({ start: new Date('2026-08-19T09:00:00'), end: null }), now)).toBe(false);

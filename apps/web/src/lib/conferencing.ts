@@ -40,11 +40,44 @@ const MATCHERS: Array<{ platform: ConferencePlatform; pattern: RegExp; joinable:
   { platform: 'teams', pattern: TEAMS, joinable: false },
 ];
 
+/**
+ * Drop punctuation the sentence owns rather than the URL.
+ *
+ * These links are usually pasted mid-prose — "join at https://acme.zoom.us/j/1,
+ * or dial in" — and the broad host patterns would otherwise swallow the comma,
+ * the full stop, or the closing bracket, producing a link that 404s. Brackets
+ * are only stripped when unbalanced, so a genuinely parenthesised path survives.
+ */
+function trimTrailingPunctuation(url: string): string {
+  let end = url.length;
+  while (end > 0) {
+    const char = url[end - 1]!;
+    if ('.,;:!?\'"'.includes(char)) {
+      end -= 1;
+      continue;
+    }
+    if (char === ')' || char === ']' || char === '}') {
+      const open = char === ')' ? '(' : char === ']' ? '[' : '{';
+      const slice = url.slice(0, end);
+      const opens = slice.split(open).length - 1;
+      const closes = slice.split(char).length - 1;
+      if (closes > opens) {
+        end -= 1;
+        continue;
+      }
+    }
+    break;
+  }
+  return url.slice(0, end);
+}
+
 function firstMatch(text: string | null | undefined): Conferencing | null {
   if (!text) return null;
   for (const { platform, pattern, joinable } of MATCHERS) {
     const found = text.match(pattern);
-    if (found?.[0]) return { platform, url: found[0], joinable };
+    if (found?.[0]) {
+      return { platform, url: trimTrailingPunctuation(found[0]), joinable };
+    }
   }
   return null;
 }
