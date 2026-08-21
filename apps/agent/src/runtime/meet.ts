@@ -45,52 +45,70 @@ export class MeetRuntime implements BotRuntime {
     };
     emit({ kind: 'joining' });
 
-    const browser = await chromium.launch({
-      headless: this.opts.headless ?? true,
-      slowMo: this.opts.slowMoMs ?? 0,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--use-fake-ui-for-media-stream', // auto-accept mic/cam prompts
-        '--autoplay-policy=no-user-gesture-required',
-        // Pin audio output to the PulseAudio sink we'll capture from.
-        `--alsa-output-device=${this.opts.pulseSink}`,
-      ],
-    });
+    // One arg list for both launch paths. They diverged once — the persistent
+    // branch quietly dropped --disable-blink-features=AutomationControlled —
+    // and a signed-in Chromium advertising itself as automated is exactly the
+    // client Google stalls, which surfaced as goto() timing out on a page that
+    // loads fine by hand.
+    const args = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-blink-features=AutomationControlled',
+      '--use-fake-ui-for-media-stream', // auto-accept mic/cam prompts
+      '--autoplay-policy=no-user-gesture-required',
+      // Pin audio output to the PulseAudio sink we'll capture from.
+      `--alsa-output-device=${this.opts.pulseSink}`,
+    ];
+    const userAgent =
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
+    let browser: Browser | null = null;
     let context: BrowserContext;
+
     if (this.opts.userDataDir) {
-      // Persistent context for sign-in reuse.
-      await browser.close();
-      const persistent = await chromium.launchPersistentContext(this.opts.userDataDir, {
+      // Straight to the persistent context. The old code launched a throwaway
+      // browser first and immediately closed it, which bought nothing and cost
+      // a browser start on every join.
+      context = await chromium.launchPersistentContext(this.opts.userDataDir, {
         headless: this.opts.headless ?? true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--use-fake-ui-for-media-stream',
-          `--alsa-output-device=${this.opts.pulseSink}`,
-        ],
+        slowMo: this.opts.slowMoMs ?? 0,
+        args,
+        permissions: ['microphone', 'camera'],
+        userAgent,
+        viewport: { width: 1280, height: 800 },
       });
-      context = persistent;
+      log.info({ userDataDir: this.opts.userDataDir }, 'using persistent Meet profile');
     } else {
+      browser = await chromium.launch({
+        headless: this.opts.headless ?? true,
+        slowMo: this.opts.slowMoMs ?? 0,
+        args,
+      });
       context = await browser.newContext({
         permissions: ['microphone', 'camera'],
-        userAgent:
-          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        userAgent,
         viewport: { width: 1280, height: 800 },
       });
     }
 
-    const page = await context.newPage();
-
-    // Anti-detection: hide navigator.webdriver.
+    // Before any page exists. An init script only applies to pages created
+    // after it is registered, so the old ordering — newPage() then
+    // addInitScript() — left navigator.webdriver exposed on the one page the
+    // runtime actually used.
     await context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
 
+    // A persistent context opens with a page already; making another leaves a
+    // stray about:blank behind for the life of the meeting.
+    const page = context.pages()[0] ?? (await context.newPage());
+
     log.info({ meetingUrl: joinOpts.meetingUrl }, 'navigating to Meet URL');
-    await page.goto(joinOpts.meetingUrl, { waitUntil: 'load', timeout: 60_000 });
+    // `domcontentloaded`, not `load`: Meet is a long-polling SPA whose load
+    // event can lag far behind the page being usable, and waiting for it made
+    // a working join look like a dead one.
+    await page.goto(joinOpts.meetingUrl, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+    await page.waitForTimeout(3_000);
 
     // Step 0: clear the tooltips Meet stacks over the pre-join screen. The
     // "Sign in with your Google account" bubble is the usual one, and while it
