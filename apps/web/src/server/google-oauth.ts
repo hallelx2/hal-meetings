@@ -131,8 +131,18 @@ export async function persistGoogleOauth(
 
   // Same rule as the OAuth callback, same function: nothing from the provider
   // means assume identity, never the full grant.
-  const scopes =
+  const reported =
     input.scopes.length > 0 ? input.scopes : resolveGrantedScopes(null);
+
+  // An OAuth grant accumulates; it does not shrink because one response
+  // mentioned less. An identity-only sign-in reports only identity scopes, and
+  // replacing the stored set with those would report `not-connected` while the
+  // preserved refresh token still grants calendar — the same contradiction this
+  // change exists to remove, arriving by a different route.
+  //
+  // If access really is withdrawn at Google, the refresh fails with
+  // invalid_grant and surfaces as reconnect, so the union cannot strand anyone.
+  const scopes = [...new Set([...(existing?.scopes ?? []), ...reported])];
 
   await input.store.oauthTokens.upsert({
     workspaceId: workspace.id,

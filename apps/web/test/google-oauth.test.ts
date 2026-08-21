@@ -247,6 +247,24 @@ describe('persistGoogleOauth', () => {
     expect(store.tokens).toHaveLength(1);
     expect(store.tokens[0]!.refreshTokenCt).not.toBeNull();
     expect(store.tokens[0]!.refreshTokenCt).toEqual(stored);
+
+    // The access token must still be the new one — preserving the refresh
+    // token must not freeze the whole row.
+    await expect(
+      envelope.decryptString({
+        wrappedDek: store.usersRows[0]!.dekWrapped,
+        keyId: store.usersRows[0]!.dekKmsKeyId,
+        ciphertext: store.tokens[0]!.accessTokenCt,
+      }),
+    ).resolves.toBe('ya29.second');
+
+    // And the calendar scope must survive an identity-only response. Narrowing
+    // it would report not-connected while the retained refresh token still
+    // grants calendar — the same contradiction by a different route.
+    expect(store.tokens[0]!.scopes).toContain(
+      'https://www.googleapis.com/auth/calendar.readonly',
+    );
+    expect(store.tokens[0]!.scopes).toContain('openid');
     // And it must still decrypt to the original secret, not merely be non-null.
     await expect(
       envelope.decryptString({
