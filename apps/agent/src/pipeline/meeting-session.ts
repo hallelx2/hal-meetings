@@ -46,7 +46,7 @@ export interface MeetingSessionResult {
   summary: MeetingSummary;
   transcriptId: string;
   emailId?: string;
-  endedReason: 'host-ended' | 'kill-requested' | 'kicked' | 'error';
+  endedReason: 'host-ended' | 'kill-requested' | 'kicked' | 'error' | 'max-duration';
 }
 
 /**
@@ -131,7 +131,25 @@ export async function runMeetingSession(
   });
 
   // 4. Wait for the meeting to end (kill, kicked, or naturally).
+  //
+  // A hard ceiling sits under every other exit path. The runtime's own
+  // end-detection is DOM-based and will break again; when it does, the failure
+  // is a worker pinned to a finished meeting forever, holding a transcript it
+  // never writes. This turns that into a late finish instead of a lost one.
+  const maxDurationMs = Number(process.env.HAL_MAX_MEETING_MS ?? 4 * 60 * 60 * 1000);
+
   const ended = await new Promise<RuntimeEvent>((resolve) => {
+    const cap = setTimeout(() => {
+      log.warn({ maxDurationMs }, 'meeting hit the maximum duration — ending it');
+      endedReason = 'max-duration';
+      resolve({ kind: 'left', at: new Date() });
+    }, maxDurationMs);
+
+    const settle = (event: RuntimeEvent) => {
+      clearTimeout(cap);
+      resolve(event);
+    };
+
     const unsub = session.on((e) => {
       switch (e.kind) {
         case 'disclosed':
@@ -161,21 +179,21 @@ export async function runMeetingSession(
         case 'kill-requested':
           endedReason = 'kill-requested';
           unsub();
-          resolve(e);
+          settle(e);
           break;
         case 'kicked':
           endedReason = 'kicked';
           unsub();
-          resolve(e);
+          settle(e);
           break;
         case 'left':
           unsub();
-          resolve(e);
+          settle(e);
           break;
         case 'error':
           endedReason = 'error';
           unsub();
-          resolve(e);
+          settle(e);
           break;
       }
     });
