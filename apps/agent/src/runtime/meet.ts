@@ -92,6 +92,11 @@ export class MeetRuntime implements BotRuntime {
     log.info({ meetingUrl: joinOpts.meetingUrl }, 'navigating to Meet URL');
     await page.goto(joinOpts.meetingUrl, { waitUntil: 'load', timeout: 60_000 });
 
+    // Step 0: clear the tooltips Meet stacks over the pre-join screen. The
+    // "Sign in with your Google account" bubble is the usual one, and while it
+    // does not always cover the join button it does take focus.
+    await this.dismissTooltips(page, log);
+
     // Step 1: name entry (guest mode). May be skipped if signed in.
     await this.maybeEnterName(page, joinOpts.botDisplayName, log);
 
@@ -158,17 +163,76 @@ export class MeetRuntime implements BotRuntime {
 
   // ---- internal step implementations ----
 
+  /**
+   * Meet stacks coach-marks over the pre-join screen. They do not always cover
+   * anything, but they do hold focus, and a dismissed tooltip is one less thing
+   * between the name field and the keyboard.
+   */
+  private async dismissTooltips(page: Page, log: Logger): Promise<void> {
+    for (const sel of ['button:has-text("Got it")', 'button:has-text("Dismiss")']) {
+      try {
+        const btn = page.locator(sel).first();
+        await btn.waitFor({ state: 'visible', timeout: 3_000 });
+        await btn.click({ timeout: 3_000 });
+        log.debug({ sel }, 'dismissed pre-join tooltip');
+      } catch {
+        // Not present is the common case.
+      }
+    }
+  }
+
+  /**
+   * Type the guest name, and check it stuck.
+   *
+   * This is the step whose silent failure looks like something else entirely.
+   * Meet **disables** "Ask to join" until the name field is non-empty, and a
+   * disabled button is still a *visible* button — so a lost name surfaces much
+   * later as a click that times out, and the join step reports it as "could not
+   * find a join button". The field was the problem the whole time.
+   *
+   * `fill` alone is not enough: the pre-join screen re-renders as it hydrates
+   * and has been observed to clear a value written a moment too early. So the
+   * value is read back, and retried by typing key-by-key, which survives
+   * re-renders that a single programmatic set does not.
+   */
   private async maybeEnterName(page: Page, displayName: string, log: Logger): Promise<void> {
-    const nameInput = page.locator(
-      'input[aria-label*="name" i], input[placeholder*="name" i]',
-    );
+    const nameInput = page
+      .locator('input[aria-label*="name" i], input[placeholder*="name" i]')
+      .first();
+
     try {
-      await nameInput.first().waitFor({ state: 'visible', timeout: 8_000 });
-      await nameInput.first().fill(displayName);
-      log.info({ displayName }, 'set guest display name');
+      await nameInput.waitFor({ state: 'visible', timeout: 15_000 });
     } catch {
       log.debug('no name input visible — assuming signed-in or already named');
+      return;
     }
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        await nameInput.click({ timeout: 5_000 });
+        await nameInput.fill('');
+        await nameInput.fill(displayName);
+
+        const value = await nameInput.inputValue();
+        if (value.trim()) {
+          log.info({ displayName: value, attempt }, 'set guest display name');
+          return;
+        }
+
+        // A re-render ate it. Typing survives what setting the value does not.
+        await nameInput.pressSequentially(displayName, { delay: 25 });
+        if ((await nameInput.inputValue()).trim()) {
+          log.info({ displayName, attempt }, 'set guest display name by typing');
+          return;
+        }
+      } catch (e) {
+        log.debug({ err: (e as Error).message, attempt }, 'name entry attempt failed');
+      }
+      await page.waitForTimeout(1_000);
+    }
+
+    // Loud, because everything after this fails in a way that points elsewhere.
+    log.error('could not set the guest name — Meet will keep the join button disabled');
   }
 
   private async muteBeforeJoining(page: Page, log: Logger): Promise<void> {
@@ -188,6 +252,14 @@ export class MeetRuntime implements BotRuntime {
     }
   }
 
+  /**
+   * Click the join button, and say which of the two failures happened.
+   *
+   * "Not on the page" and "on the page but disabled" need completely different
+   * fixes — a selector change versus a missing guest name — and the old code
+   * reported both as "could not find a join button", which sent the search to
+   * the wrong place.
+   */
   private async clickJoin(page: Page, log: Logger): Promise<void> {
     const candidates = [
       'button:has-text("Ask to join")',
@@ -195,18 +267,44 @@ export class MeetRuntime implements BotRuntime {
       'button[aria-label*="Join now" i]',
       'button[aria-label*="Ask to join" i]',
     ];
+
+    let seenButDisabled = false;
+
     for (const sel of candidates) {
+      const btn = page.locator(sel).first();
       try {
-        const btn = page.locator(sel).first();
         await btn.waitFor({ state: 'visible', timeout: 6_000 });
-        await btn.click({ timeout: 6_000 });
+      } catch {
+        continue; // genuinely not on the page
+      }
+
+      // Meet keeps the button mounted and disabled until the form is valid, so
+      // wait for it to become enabled rather than clicking into a dead target.
+      try {
+        await page
+          .locator(`${sel}:not([disabled]):not([aria-disabled="true"])`)
+          .first()
+          .waitFor({ state: 'visible', timeout: 15_000 });
+      } catch {
+        seenButDisabled = true;
+        log.warn({ sel }, 'join button present but still disabled');
+        continue;
+      }
+
+      try {
+        await btn.click({ timeout: 8_000 });
         log.info({ sel }, 'clicked join');
         return;
-      } catch {
-        // try the next
+      } catch (e) {
+        log.warn({ sel, err: (e as Error).message }, 'join button click failed');
       }
     }
-    throw new Error('[@hal/agent meet] could not find a join button');
+
+    throw new Error(
+      seenButDisabled
+        ? '[@hal/agent meet] join button stayed disabled — the guest name was not accepted'
+        : '[@hal/agent meet] could not find a join button',
+    );
   }
 
   private async waitForAdmission(page: Page, timeoutMs: number, log: Logger): Promise<boolean> {
