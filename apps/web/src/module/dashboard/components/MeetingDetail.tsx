@@ -44,6 +44,7 @@ export function MeetingDetail({
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const cancelClose = () => {
     if (closeTimer.current) {
@@ -69,9 +70,17 @@ export function MeetingDetail({
   useEffect(() => onDismissPopovers(() => setOpen(false)), []);
 
   // A preview anchored to a chip that has scrolled away is pointing at nothing.
+  //
+  // Capture, because scroll does not bubble — which also means this sees the
+  // preview's *own* description pane scrolling. Reading a long agenda would
+  // otherwise dismiss the thing being read.
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    const close = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && contentRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     window.addEventListener('scroll', close, { passive: true, capture: true });
     return () => window.removeEventListener('scroll', close, { capture: true });
   }, [open]);
@@ -120,6 +129,7 @@ export function MeetingDetail({
             align="start"
             sideOffset={8}
             collisionPadding={16}
+            ref={contentRef}
             onPointerEnter={cancelClose}
             onPointerLeave={scheduleClose}
             // A preview must never steal focus, or the pointer crossing the
