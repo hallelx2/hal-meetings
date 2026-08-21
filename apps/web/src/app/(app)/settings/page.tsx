@@ -10,7 +10,7 @@ export default async function Page() {
     <SettingsView
       email={session.email}
       name={session.name}
-      calendarConnected={session.calendarConnected}
+      calendar={session.calendar}
     />
   );
 }

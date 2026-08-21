@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { HalWordmark } from '@/components/shared/HalWordmark';
 import { AppNav } from '@/module/shell/components/AppNav';
 import { CalendarStatusChip } from '@/module/shell/components/CalendarStatusChip';
+import type { CalendarConnection } from '@/lib/google-scopes';
 
 /**
  * The chrome, rendered once by the (app) layout.
@@ -13,11 +14,11 @@ import { CalendarStatusChip } from '@/module/shell/components/CalendarStatusChip
  */
 export function AppShell({
   email,
-  calendarConnected,
+  calendar,
   children,
 }: {
   email: string;
-  calendarConnected: boolean;
+  calendar: CalendarConnection;
   children: ReactNode;
 }) {
   return (
@@ -29,8 +30,11 @@ export function AppShell({
         </Link>
         <AppNav layout="sidebar" />
         <div className="mt-auto flex flex-col gap-3">
-          <CalendarStatusChip connected={calendarConnected} />
-          <p className="break-all text-[12px] font-bold uppercase tracking-adora text-ink/45">
+          <CalendarStatusChip state={calendar} />
+          <p
+            title={email}
+            className="truncate text-[12px] font-bold uppercase tracking-adora text-ink/45"
+          >
             {email}
           </p>
         </div>
@@ -44,7 +48,7 @@ export function AppShell({
           <Link href="/dashboard" aria-label="Hal dashboard" className="flex items-center">
             <HalWordmark size="sm" />
           </Link>
-          <CalendarStatusChip connected={calendarConnected} compact />
+          <CalendarStatusChip state={calendar} compact />
         </header>
 
         {/* Bottom padding clears the mobile dock so the last control on a screen

@@ -70,6 +70,16 @@ function memoryStore(): GoogleOauthStore & {
       async findForUser(userId, provider) {
         return tokens.filter((t) => t.userId === userId && t.provider === provider);
       },
+      async findByProviderAccount(userId, provider, providerAccountId) {
+        return (
+          tokens.find(
+            (t) =>
+              t.userId === userId &&
+              t.provider === provider &&
+              t.providerAccountId === providerAccountId,
+          ) ?? null
+        );
+      },
       async upsert(input: NewOauthTokenRow) {
         const existing = tokens.findIndex(
           (t) =>
@@ -196,6 +206,78 @@ describe('persistGoogleOauth', () => {
     expect(store.tokens).toHaveLength(1);
     expect(store.audits.filter((a) => a.action === 'user_created')).toHaveLength(1);
     expect(store.audits.filter((a) => a.action === 'oauth_connected')).toHaveLength(2);
+  });
+
+  it('keeps the stored refresh token when the provider does not return one', async () => {
+    // The production incident: sign-in stopped forcing consent (HAL-828), so
+    // Google issues no refresh token on an ordinary sign-in. Writing that null
+    // through destroyed the only credential that can renew calendar access,
+    // and nothing short of a full reconsent brought it back.
+    const master = toHex(crypto.getRandomValues(new Uint8Array(32)));
+    const envelope = createEnvelopeService(new LocalKms({ masterKeyHex: master }));
+    const store = memoryStore();
+
+    await persistGoogleOauth({
+      store,
+      envelope,
+      email: 'a@example.com',
+      name: 'A',
+      providerAccountId: 'sub',
+      accessToken: 'ya29.first',
+      refreshToken: '1//the-only-refresh-token',
+      expiresAt: null,
+      scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+    });
+    const stored = store.tokens[0]!.refreshTokenCt;
+    expect(stored).not.toBeNull();
+
+    // A later identity-only sign-in, exactly as Google sends it.
+    await persistGoogleOauth({
+      store,
+      envelope,
+      email: 'a@example.com',
+      name: 'A',
+      providerAccountId: 'sub',
+      accessToken: 'ya29.second',
+      refreshToken: null,
+      expiresAt: null,
+      scopes: ['openid'],
+    });
+
+    expect(store.tokens).toHaveLength(1);
+    expect(store.tokens[0]!.refreshTokenCt).not.toBeNull();
+    expect(store.tokens[0]!.refreshTokenCt).toEqual(stored);
+    // And it must still decrypt to the original secret, not merely be non-null.
+    await expect(
+      envelope.decryptString({
+        wrappedDek: store.usersRows[0]!.dekWrapped,
+        keyId: store.usersRows[0]!.dekKmsKeyId,
+        ciphertext: store.tokens[0]!.refreshTokenCt!,
+      }),
+    ).resolves.toBe('1//the-only-refresh-token');
+  });
+
+  it('replaces the refresh token when the provider does send a new one', async () => {
+    const master = toHex(crypto.getRandomValues(new Uint8Array(32)));
+    const envelope = createEnvelopeService(new LocalKms({ masterKeyHex: master }));
+    const store = memoryStore();
+
+    await persistGoogleOauth({
+      store, envelope, email: 'a@example.com', name: 'A', providerAccountId: 'sub',
+      accessToken: 'ya29.first', refreshToken: '1//old', expiresAt: null, scopes: [],
+    });
+    await persistGoogleOauth({
+      store, envelope, email: 'a@example.com', name: 'A', providerAccountId: 'sub',
+      accessToken: 'ya29.second', refreshToken: '1//new', expiresAt: null, scopes: [],
+    });
+
+    await expect(
+      envelope.decryptString({
+        wrappedDek: store.usersRows[0]!.dekWrapped,
+        keyId: store.usersRows[0]!.dekKmsKeyId,
+        ciphertext: store.tokens[0]!.refreshTokenCt!,
+      }),
+    ).resolves.toBe('1//new');
   });
 });
 

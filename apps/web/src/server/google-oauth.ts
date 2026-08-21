@@ -22,7 +22,10 @@ export {
 export type GoogleOauthStore = {
   users: Pick<UsersRepository, 'findByEmail' | 'create'>;
   workspaces: Pick<WorkspacesRepository, 'findForUser' | 'createPersonal'>;
-  oauthTokens: Pick<OauthTokensRepository, 'upsert' | 'deleteForUserProvider' | 'findForUser'>;
+  oauthTokens: Pick<
+    OauthTokensRepository,
+    'upsert' | 'deleteForUserProvider' | 'findForUser' | 'findByProviderAccount'
+  >;
   auditLog: Pick<AuditLogRepository, 'record'>;
 };
 
@@ -101,13 +104,27 @@ export async function persistGoogleOauth(
     throw new Error('access token encrypt produced plaintext');
   }
 
+  // A refresh token is issued only when consent is forced. Sign-in does not
+  // force it — deliberately, so returning users stop re-approving a grant they
+  // already gave — which means an ordinary sign-in arrives here with
+  // `refreshToken: null` while a perfectly good one is already stored.
+  //
+  // Writing that null through would destroy the only credential that can renew
+  // calendar access, and nothing short of a full reconsent would bring it back.
+  // The stored token is kept whenever the provider does not offer a new one.
+  const existing = await input.store.oauthTokens.findByProviderAccount(
+    user.id,
+    'google',
+    input.providerAccountId,
+  );
+
   const refreshTokenCt = input.refreshToken
     ? await input.envelope.encryptString({
         wrappedDek: user.dekWrapped,
         keyId: user.dekKmsKeyId,
         plaintext: input.refreshToken,
       })
-    : null;
+    : (existing?.refreshTokenCt ?? null);
   if (input.refreshToken && refreshTokenCt && ciphertextContainsPlaintext(refreshTokenCt, input.refreshToken)) {
     throw new Error('refresh token encrypt produced plaintext');
   }
