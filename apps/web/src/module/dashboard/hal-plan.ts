@@ -11,7 +11,7 @@
  * with every stage pending, never a plausible-looking summary.
  */
 
-import { isLive, type CalendarEntry } from '@/module/dashboard/calendar';
+import { hasEnded, isLive, type CalendarEntry } from '@/module/dashboard/calendar';
 
 export type StageState = 'done' | 'active' | 'pending' | 'blocked';
 
@@ -27,6 +27,10 @@ export type HalPosture =
   | 'blocked'
   /** Hal could attend but has not been asked to. */
   | 'unbooked'
+  /** It is over, and Hal was not in it. Nothing can be done about it now. */
+  | 'missed'
+  /** A run that started and never reported back. */
+  | 'stalled'
   /** Hal is going. */
   | 'booked'
   | 'joining'
@@ -119,6 +123,24 @@ function blockedReason(entry: CalendarEntry): string | null {
   return null;
 }
 
+/**
+ * A run that was mid-flight when the meeting ended and never came back.
+ *
+ * Left alone, `status` sticks at 'joining' or 'in-progress' forever and the
+ * panel keeps announcing that Hal is in a call that finished days ago. Saying
+ * nothing was reported is the only claim that is actually supported.
+ */
+function stalled(states: StageState[]): HalPlan {
+  return {
+    posture: 'stalled',
+    headline: 'Hal never reported back from this meeting.',
+    reason:
+      'The meeting has ended while the run was still mid-flight, so there may be no recording and no summary.',
+    sendable: false,
+    stages: withStates(states),
+  };
+}
+
 export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
   const blocked = blockedReason(entry);
   if (blocked) {
@@ -130,6 +152,11 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
       stages: withStates(every('blocked')),
     };
   }
+
+  // Everything below turns on whether the meeting is still ahead. Offering to
+  // send Hal into a call that finished last month is the specific nonsense this
+  // guards: the action is impossible, and printing it invites the user to try.
+  const ended = hasEnded(entry, now);
 
   switch (entry.status) {
     case 'completed':
@@ -149,11 +176,13 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
         // than guessing at one — a made-up cause sends the operator looking in
         // the wrong place.
         reason: entry.failureReason ?? 'The agent did not record a reason.',
-        sendable: true,
+        // Retrying is only meaningful while there is still a call to join.
+        sendable: !ended,
         stages: withStates(every('blocked')),
       };
 
     case 'in-progress':
+      if (ended) return stalled(['done', 'done', 'blocked', 'blocked', 'blocked', 'blocked', 'blocked']);
       return {
         posture: 'live',
         headline: 'Hal is in this meeting right now.',
@@ -163,6 +192,7 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
       };
 
     case 'joining':
+      if (ended) return stalled(every('blocked'));
       return {
         posture: 'joining',
         headline: 'Hal is joining — admit the guest named Hal in the lobby.',
@@ -180,6 +210,21 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
   // 'ask', which means Hal will *not* turn up unless it is sent. Showing "Hal
   // can join" — a statement about capability — where the operator reads it as
   // a commitment is the single most misleading thing this screen could do.
+  if (ended) {
+    return {
+      posture: 'missed',
+      headline: 'This meeting has already ended, and Hal was not in it.',
+      reason:
+        entry.policy === 'auto'
+          ? 'Hal was booked for this one but never ran, so nothing was recorded.'
+          : 'It finished before Hal was sent, so there is no recording and no summary.',
+      // Nothing to join. A button here would be an invitation to try something
+      // that cannot work.
+      sendable: false,
+      stages: withStates(every('blocked')),
+    };
+  }
+
   if (entry.policy === 'auto') {
     return {
       posture: 'booked',
@@ -194,7 +239,9 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
 
   return {
     posture: 'unbooked',
-    headline: 'Hal is not booked for this one.',
+    headline: isLive(entry, now)
+      ? 'Hal is not in this meeting — it is running now.'
+      : 'Hal is not booked for this one.',
     reason: 'Calendar meetings are opt-in. Send Hal and it joins; otherwise it stays out.',
     sendable: true,
     stages: withStates(every('pending')),

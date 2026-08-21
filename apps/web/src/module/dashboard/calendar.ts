@@ -161,6 +161,18 @@ export function isLive(entry: CalendarEntry, now: Date): boolean {
   return entry.end ? true : sinceStart < 60 * 60 * 1000;
 }
 
+/**
+ * Is this meeting over?
+ *
+ * The same assumption `isLive` makes about an endless meeting — an hour — so
+ * the two can never disagree about a meeting that is neither live nor ended.
+ * A meeting that has not started yet is not ended.
+ */
+export function hasEnded(entry: CalendarEntry, now: Date): boolean {
+  if (entry.end) return entry.end.getTime() <= now.getTime();
+  return now.getTime() - entry.start.getTime() >= 60 * 60 * 1000;
+}
+
 export type PeriodStats = {
   total: number;
   joinable: number;
