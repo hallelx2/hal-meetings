@@ -17,6 +17,7 @@
         "@hal/crypto": "workspace:*",
         "@hal/db": "workspace:*",
         "@hal/media": "workspace:*",
+        "@hal/meeting-links": "workspace:*",
         "commander": "^13.0.0",
         "pino": "^9.5.0",
         "pino-pretty": "^13.0.0",
@@ -36,6 +37,7 @@
         "@hal/db": "workspace:*",
         "@hal/design-tokens": "workspace:*",
         "@hal/media": "workspace:*",
+        "@hal/meeting-links": "workspace:*",
         "@hal/ui": "workspace:*",
         "@radix-ui/react-dialog": "^1.1.23",
         "@radix-ui/react-popover": "^1.1.23",
@@ -96,6 +98,13 @@
         "@types/bun": "^1.1.14",
         "@types/node": "^22.10.5",
         "@types/ws": "^8.5.13",
+        "typescript": "^5.6.3",
+      },
+    },
+    "packages/meeting-links": {
+      "name": "@hal/meeting-links",
+      "version": "0.0.0",
+      "devDependencies": {
         "typescript": "^5.6.3",
       },
     },
@@ -229,6 +238,8 @@
     "@hal/design-tokens": ["@hal/design-tokens@workspace:packages/design-tokens"],
 
     "@hal/media": ["@hal/media@workspace:packages/media"],
+
+    "@hal/meeting-links": ["@hal/meeting-links@workspace:packages/meeting-links"],
 
     "@hal/ui": ["@hal/ui@workspace:packages/ui"],
 

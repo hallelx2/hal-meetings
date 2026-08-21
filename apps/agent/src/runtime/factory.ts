@@ -9,10 +9,8 @@ export interface RuntimeFactoryEnv {
   HAL_PULSE_SINK?: string;
   HAL_HEADLESS?: string;
   HAL_USER_DATA_DIR?: string;
-  // Zoom
-  ZOOM_SDK_KEY?: string;
-  ZOOM_SDK_SECRET?: string;
-  ZOOM_SDK_BINARY?: string;
+  // Zoom — the web client needs no Marketplace credentials at all.
+  ZOOM_PASSCODE?: string;
   // Teams
   MS_APP_ID?: string;
   MS_APP_PASSWORD?: string;
@@ -35,15 +33,13 @@ export function createRuntime(
     }
 
     case 'zoom': {
-      if (!env.ZOOM_SDK_KEY || !env.ZOOM_SDK_SECRET || !env.ZOOM_SDK_BINARY) {
-        throw new Error(
-          '[@hal/agent factory] Zoom runtime requires ZOOM_SDK_KEY, ZOOM_SDK_SECRET, ZOOM_SDK_BINARY',
-        );
-      }
+      // Same browser, same PulseAudio sink as Meet. Zoom's web client needs no
+      // SDK key, no secret and no downloaded binary — which is the whole reason
+      // this platform could ship without waiting on Marketplace approval.
       const opts: ZoomRuntimeOptions = {
-        sdkKey: env.ZOOM_SDK_KEY,
-        sdkSecret: env.ZOOM_SDK_SECRET,
-        sdkBinaryPath: env.ZOOM_SDK_BINARY,
+        pulseSink: env.HAL_PULSE_SINK ?? 'halsink',
+        headless: env.HAL_HEADLESS !== 'false',
+        passcode: env.ZOOM_PASSCODE,
       };
       return new ZoomRuntime(opts);
     }

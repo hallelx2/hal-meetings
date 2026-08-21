@@ -50,8 +50,8 @@ export function SendHalDialog() {
                 Send Hal to a meeting
               </Dialog.Title>
               <Dialog.Description className="text-[15px] leading-relaxed text-ink/75">
-                Paste a Google Meet link. Hal joins, announces itself, transcribes, and emails you
-                the summary when the call ends.
+                Paste a Google Meet or Zoom link. Hal joins, announces itself in the chat,
+                transcribes, and emails you the summary when the call ends.
               </Dialog.Description>
             </div>
 

@@ -24,7 +24,8 @@
     "next": "^15.1.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "@hal/meeting-links": "workspace:*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",

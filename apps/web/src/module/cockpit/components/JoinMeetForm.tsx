@@ -26,7 +26,7 @@ export function JoinMeetForm() {
         if (!res.ok) {
           setMessage(
             data.error === 'invalid_meet_url'
-              ? 'Use a https://meet.google.com/xxx-yyyy-zzz link.'
+              ? 'Use a Meet link (meet.google.com/xxx-yyyy-zzz) or a Zoom link (zoom.us/j/…).'
               : 'Could not enqueue the join.',
           );
           return;
@@ -37,7 +37,7 @@ export function JoinMeetForm() {
       }}
     >
       <label className="text-[12px] font-bold uppercase tracking-adora text-ink/50" htmlFor="meet-url">
-        Meet URL
+        Meeting URL
       </label>
       <input
         id="meet-url"
@@ -45,7 +45,7 @@ export function JoinMeetForm() {
         required
         value={url}
         onChange={(event) => setUrl(event.target.value)}
-        placeholder="https://meet.google.com/abc-defg-hij"
+        placeholder="https://meet.google.com/abc-defg-hij or https://zoom.us/j/…"
         className="h-12 px-3 brutal-border bg-canvas-white text-[15px] outline-none focus:bg-lush-green/20"
       />
       <button
@@ -53,7 +53,7 @@ export function JoinMeetForm() {
         disabled={busy}
         className="inline-flex h-12 items-center justify-center px-6 bg-ink text-canvas-white text-[14px] font-bold uppercase tracking-adora hover:bg-ink-soft disabled:opacity-60"
       >
-        {busy ? 'Sending Hal…' : 'Join this Meet'}
+        {busy ? 'Sending Hal…' : 'Send Hal to this meeting'}
       </button>
       {message ? <p className="text-[14px] text-ink/70">{message}</p> : null}
     </form>
