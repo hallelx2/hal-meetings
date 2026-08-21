@@ -21,7 +21,7 @@ import { CALENDAR_SCOPES, IDENTITY_SCOPES } from '@/lib/google-scopes';
  * calendar sync dies the first time the access token expires.
  */
 export function ConnectCalendarButton({
-  next = '/app',
+  next = '/dashboard',
   variant = 'primary',
   label = 'Connect Google Calendar',
 }: {

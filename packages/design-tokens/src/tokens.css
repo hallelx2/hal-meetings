@@ -12,6 +12,14 @@
   --color-neon-pink: #f843c2;
   --color-aqua-blue: #2ed6ff;
   --color-electric-green: #a2ea13;
+  /* Legible on white — the fill green fails contrast as text. */
+  --color-electric-green-ink: #5c8a04;
+
+  /* The signature ink: every brutal rule and every body glyph is this.
+     Lives here, not in the app, so a future mobile client reads the same two
+     colours the whole system is drawn with. */
+  --color-ink: #0b0b0b;
+  --color-ink-soft: #1a1a1a;
   --color-soft-gray-fill: #eeeeee;
 
   /* Font families */

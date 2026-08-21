@@ -7,6 +7,6 @@ export const dynamic = 'force-dynamic';
 
 export default async function Page() {
   const session = await getAuth().api.getSession({ headers: await headers() });
-  if (session?.user) redirect('/app');
+  if (session?.user) redirect('/dashboard');
   return <LandingView signedIn={false} />;
 }
