@@ -1,8 +1,17 @@
 import { PageHeader } from '@/module/shell/components/PageHeader';
 import { ConnectCalendarButton } from '@/module/cockpit/components/ConnectCalendarButton';
 import { JoinMeetForm } from '@/module/cockpit/components/JoinMeetForm';
-import { WeekCalendar } from '@/module/dashboard/components/WeekCalendar';
-import { isLive } from '@/module/dashboard/week';
+import { StatRow } from '@/module/dashboard/components/StatRow';
+import { CalendarGrid } from '@/module/dashboard/components/CalendarGrid';
+import { CalendarToolbar } from '@/module/dashboard/components/CalendarToolbar';
+import { CalendarLegend, EventChip } from '@/module/dashboard/components/EventChip';
+import {
+  buildGrid,
+  isLive,
+  periodLabel,
+  periodStats,
+  type CalendarView,
+} from '@/module/dashboard/calendar';
 import type { CalendarState } from '@/server/dashboard';
 
 function ConnectPrompt() {
@@ -43,16 +52,22 @@ function Notice({ title, body, action }: { title: string; body: string; action?:
 export function DashboardView({
   name,
   calendar,
+  anchor,
+  view,
   now,
 }: {
   name: string | null;
   calendar: CalendarState;
+  anchor: Date;
+  view: CalendarView;
   now: Date;
 }) {
   const firstName = name?.split(' ')[0] ?? null;
   const entries = calendar.kind === 'ready' ? calendar.entries : [];
+  const cells = buildGrid(anchor, now, view, entries);
+  const stats = periodStats(cells);
+  const label = periodLabel(anchor, view);
   const liveNow = entries.filter((entry) => isLive(entry, now));
-  const joinable = entries.filter((entry) => entry.joinable).length;
 
   return (
     <div className="flex flex-col gap-10">
@@ -61,9 +76,7 @@ export function DashboardView({
         title={firstName ? `Hi, ${firstName}` : 'Welcome back'}
         lede={
           calendar.kind === 'ready'
-            ? joinable > 0
-              ? `${joinable} meeting${joinable === 1 ? '' : 's'} this week Hal can join.`
-              : 'Nothing with a Meet link this week. Paste one below to send Hal into a call now.'
+            ? 'Your calendar, and what Hal can do with it.'
             : 'Paste a Meet link to send Hal into a call, or connect your calendar so it can join on its own.'
         }
       />
@@ -83,21 +96,15 @@ export function DashboardView({
         />
       ) : null}
 
+      {calendar.kind === 'ready' ? <StatRow stats={stats} periodName={label} /> : null}
+
       {liveNow.length > 0 ? (
         <section className="flex flex-col gap-3">
           <h2 className="text-[22px] leading-[1.1]">Happening now</h2>
           <ul className="flex flex-col gap-2">
             {liveNow.map((entry) => (
-              <li
-                key={entry.id}
-                className="flex flex-wrap items-center justify-between gap-3 bg-air-blue p-4 brutal-border-2"
-              >
-                <span className="min-w-0 text-[16px] font-semibold">{entry.title}</span>
-                {entry.status ? (
-                  <span className="shrink-0 whitespace-nowrap text-[12px] font-bold uppercase tracking-adora">
-                    {entry.status}
-                  </span>
-                ) : null}
+              <li key={entry.id}>
+                <EventChip entry={entry} now={now} />
               </li>
             ))}
           </ul>
@@ -106,18 +113,14 @@ export function DashboardView({
 
       {calendar.kind === 'ready' ? (
         <section className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-[22px] leading-[1.1]">This week</h2>
-            <p className="text-[12px] font-bold uppercase tracking-adora text-ink/45">
-              Green · Hal can join
-            </p>
-          </div>
-          {entries.length === 0 ? (
+          <CalendarToolbar anchor={anchor} view={view} label={label} today={now} />
+          <CalendarLegend />
+          {stats.total === 0 ? (
             <p className="p-6 text-[15px] text-ink/60 brutal-border-2">
-              No events on your calendar this week.
+              Nothing on your calendar in {label}.
             </p>
           ) : (
-            <WeekCalendar entries={entries} now={now} />
+            <CalendarGrid cells={cells} view={view} now={now} />
           )}
         </section>
       ) : null}
