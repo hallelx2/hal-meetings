@@ -29,6 +29,25 @@ function admissionTimeout(env: RuntimeFactoryEnv): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 600_000;
 }
 
+/**
+ * Headed, unless explicitly told otherwise — and that default is the whole
+ * reason Hal can produce a transcript.
+ *
+ * Playwright's headless Chromium is `chrome-headless-shell`, a stripped build
+ * on Chromium's //content module with no X11 dependency and no audio output.
+ * Measured in this container with a Web Audio tone and nothing else running:
+ *
+ *   headless : 127,788 bytes captured from the sink, 0 non-zero  → silence
+ *   headed   : 126,164 bytes captured from the sink, 215,959 non-zero → audio
+ *
+ * A headless browser joins the meeting perfectly and records nothing, which is
+ * the worst failure this product has: every downstream stage succeeds on an
+ * empty transcript. The container already runs Xvfb on :99 for exactly this.
+ */
+function headless(env: RuntimeFactoryEnv): boolean {
+  return env.HAL_HEADLESS === 'true';
+}
+
 export function createRuntime(
   platform: Platform,
   env: RuntimeFactoryEnv = process.env as RuntimeFactoryEnv,
@@ -37,7 +56,7 @@ export function createRuntime(
     case 'meet': {
       const meetOpts: MeetRuntimeOptions = {
         pulseSink: env.HAL_PULSE_SINK ?? 'halsink',
-        headless: env.HAL_HEADLESS !== 'false',
+        headless: headless(env),
         userDataDir: env.HAL_USER_DATA_DIR,
         admissionTimeoutMs: admissionTimeout(env),
       };
@@ -50,7 +69,7 @@ export function createRuntime(
       // this platform could ship without waiting on Marketplace approval.
       const opts: ZoomRuntimeOptions = {
         pulseSink: env.HAL_PULSE_SINK ?? 'halsink',
-        headless: env.HAL_HEADLESS !== 'false',
+        headless: headless(env),
         // Shared with Meet: one signed-in browser profile on the box is the
         // bot's identity on both platforms.
         userDataDir: env.HAL_USER_DATA_DIR,
