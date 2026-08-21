@@ -1,4 +1,4 @@
-import { and, eq, lt, sql } from 'drizzle-orm';
+import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Db } from '../client';
 import { jobs, type JobRow, type NewJobRow } from '../schema/jobs';
 import type { JobKind, JobStatus } from '../types';
@@ -44,7 +44,14 @@ export class JobsRepository {
     // LOCKED to avoid two workers grabbing the same job.
     // IN (...), not ANY($1): postgres-js binds a JS string[] as text, and
     // ANY(text) is a malformed array literal.
-    const rows = await this.db.execute<JobRow>(sql`
+    //
+    // `RETURNING id`, not `RETURNING *`. Raw SQL comes back from the driver
+    // with the database's own column names — `workspace_id`, `payload_ct` —
+    // and casting that to JobRow does not rename anything. It only silences
+    // the compiler. Every camelCase field the caller then reads is `undefined`,
+    // which surfaced as "job <id> has no workspace_id" on a row whose
+    // workspace_id was populated all along.
+    const claimed = await this.db.execute<{ id: string }>(sql`
       WITH claimed AS (
         SELECT id
         FROM ${jobs}
@@ -61,10 +68,15 @@ export class JobsRepository {
           claimed_by = ${opts.workerId},
           updated_at = NOW()
       WHERE id IN (SELECT id FROM claimed)
-      RETURNING *;
+      RETURNING id;
     `);
 
-    return rows as unknown as JobRow[];
+    const ids = (claimed as unknown as Array<{ id: string }>).map((row) => row.id);
+    if (ids.length === 0) return [];
+
+    // The rows are already claimed by the UPDATE above, so re-selecting them
+    // through Drizzle costs one query and buys the correct field mapping.
+    return this.db.select().from(jobs).where(inArray(jobs.id, ids));
   }
 
   async markStarted(id: string): Promise<JobRow> {
