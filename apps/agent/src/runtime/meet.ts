@@ -14,6 +14,33 @@ const IN_CALL_SELECTOR =
 const CHAT_MESSAGE_SELECTOR =
   '[data-message-text], [jsname][data-sender-name], div[role="listitem"], [class*="chat-message"]';
 
+/**
+ * Chat is off, so Hal cannot announce itself — and therefore must not record.
+ *
+ * The disclosure is the entire basis on which recording other people is
+ * acceptable. Without it there is no honest way to stay in the room, so this
+ * ends the join rather than quietly degrading to an undisclosed recording.
+ */
+export class ChatUnavailableError extends Error {
+  constructor() {
+    super(
+      "[@hal/agent meet] chat is turned off in this meeting, so Hal cannot announce itself and will not record. Turn on chat for participants, then send Hal again.",
+    );
+    this.name = 'ChatUnavailableError';
+  }
+}
+
+/** Meet's relabelled textarea when the host has disabled chat. */
+const CHAT_DISABLED_SELECTOR = 'textarea[aria-label*="Chat isn" i][aria-label*="available" i]';
+
+/** The chat composer, across the shapes Meet has shipped. */
+const CHAT_INPUT_SELECTOR = [
+  'textarea[aria-label*="Send a message" i]',
+  'textarea[placeholder*="Send a message" i]',
+  'textarea[aria-label*="message" i]:not([aria-label*="available" i])',
+  'div[contenteditable="true"][aria-label*="message" i]',
+].join(', ');
+
 export interface MeetRuntimeOptions {
   /** PulseAudio sink to route Chromium audio to (must exist in the container). */
   pulseSink: string;
@@ -154,7 +181,17 @@ export class MeetRuntime implements BotRuntime {
     emit({ kind: 'joined', at: new Date() });
 
     // Step 5: open chat and post disclosure.
-    await this.postDisclosure(page, joinOpts.disclosure, log);
+    //
+    // Anything that throws from here must still close the browser. It did not,
+    // and one failed disclosure left Chromium alive holding the profile lock —
+    // so every later job died on "profile is already in use" until the orphan
+    // was killed by hand. A single failure poisoned the whole host.
+    try {
+      await this.postDisclosure(page, joinOpts.disclosure, log);
+    } catch (e) {
+      await this.cleanup(context, page);
+      throw e;
+    }
     emit({ kind: 'disclosed' });
 
     // Step 6: subscribe to chat for /hal stop and listen for "you've been removed" UI.
@@ -370,11 +407,33 @@ export class MeetRuntime implements BotRuntime {
     }
   }
 
+  /**
+   * Post into the meeting chat.
+   *
+   * Meet keeps the textarea mounted when chat is turned off and simply relabels
+   * it "Chat isn't available". The old selector keyed on "Send a message", so a
+   * deliberately-disabled chat surfaced as a five-second timeout that read
+   * exactly like a stale selector. The two are checked separately because they
+   * need opposite responses: one is our bug, the other is the host's setting.
+   */
   private async sendChat(page: Page, text: string): Promise<void> {
-    const input = page
-      .locator('textarea[aria-label*="Send a message" i], textarea[placeholder*="message" i]')
-      .first();
-    await input.waitFor({ state: 'visible', timeout: 5_000 });
+    const unavailable = page.locator(CHAT_DISABLED_SELECTOR).first();
+    if (await unavailable.isVisible({ timeout: 1_500 }).catch(() => false)) {
+      throw new ChatUnavailableError();
+    }
+
+    const input = page.locator(CHAT_INPUT_SELECTOR).first();
+
+    try {
+      await input.waitFor({ state: 'visible', timeout: 5_000 });
+    } catch {
+      // Chat may have been switched off between the two probes.
+      if (await unavailable.isVisible({ timeout: 500 }).catch(() => false)) {
+        throw new ChatUnavailableError();
+      }
+      throw new Error('[@hal/agent meet] could not find the chat input');
+    }
+
     await input.fill(text);
     await input.press('Enter');
   }

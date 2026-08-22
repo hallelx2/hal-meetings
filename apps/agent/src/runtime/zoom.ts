@@ -144,7 +144,15 @@ export class ZoomRuntime implements BotRuntime {
 
     emit({ kind: 'joined', at: new Date() });
 
-    await this.postDisclosure(page, joinOpts.disclosure, log);
+    // Same guarantee as Meet: a throw from here still closes the browser.
+    // Without it a failed disclosure orphans Chromium holding the profile lock,
+    // and every subsequent job dies on "profile is already in use".
+    try {
+      await this.postDisclosure(page, joinOpts.disclosure, log);
+    } catch (e) {
+      await this.cleanup(context, page);
+      throw e;
+    }
     emit({ kind: 'disclosed' });
 
     const stopWatching = this.watchChatAndStatus(page, emit, log);
