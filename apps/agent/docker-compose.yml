@@ -17,6 +17,11 @@ services:
     container_name: hal-agent
     restart: unless-stopped
 
+    # PID 1 is bun, which does not reap orphaned children — so every Chromium
+    # that exits leaves a zombie behind. Harmless at one meeting an hour, a slow
+    # march toward an exhausted process table on a host that runs for months.
+    init: true
+
     # Long-lived worker — polls Postgres for jobs, joins meetings.
     command: ["bun", "src/cli.ts", "worker", "--concurrency", "1"]
 

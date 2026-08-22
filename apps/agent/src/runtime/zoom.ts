@@ -2,6 +2,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { parseZoomUrl } from '@hal/meeting-links';
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
+import { captureFailure } from './diagnostics';
 
 export interface ZoomRuntimeOptions {
   /** PulseAudio sink to route Chromium audio to (must exist in the container). */
@@ -22,6 +23,8 @@ export interface ZoomRuntimeOptions {
   userDataDir?: string;
   /** How long to wait for admission before giving up. Default 120s. */
   admissionTimeoutMs?: number;
+  /** Where to drop a screenshot when a join fails. See MeetRuntimeOptions. */
+  diagnosticsDir?: string;
   /**
    * Passcode to type if the web client asks for one and the link carried no
    * `pwd` token. Most invitation links embed it; a manually-typed meeting ID
@@ -138,6 +141,7 @@ export class ZoomRuntime implements BotRuntime {
     if (!admitted) {
       const reason = await this.readBlockingMessage(page);
       emit({ kind: 'kicked', reason });
+      await captureFailure(page, log, 'zoom-join', this.opts.diagnosticsDir);
       await this.cleanup(context, page);
       throw new Error(`[@hal/agent zoom] ${reason}`);
     }
@@ -150,6 +154,7 @@ export class ZoomRuntime implements BotRuntime {
     try {
       await this.postDisclosure(page, joinOpts.disclosure, log);
     } catch (e) {
+      await captureFailure(page, log, 'zoom-disclosure', this.opts.diagnosticsDir);
       await this.cleanup(context, page);
       throw e;
     }

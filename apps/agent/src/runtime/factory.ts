@@ -10,6 +10,7 @@ export interface RuntimeFactoryEnv {
   HAL_HEADLESS?: string;
   HAL_USER_DATA_DIR?: string;
   HAL_ADMISSION_TIMEOUT_MS?: string;
+  HAL_DIAGNOSTICS_DIR?: string;
   // Zoom — the web client needs no Marketplace credentials at all.
   ZOOM_PASSCODE?: string;
   // Teams
@@ -59,6 +60,7 @@ export function createRuntime(
         headless: headless(env),
         userDataDir: env.HAL_USER_DATA_DIR,
         admissionTimeoutMs: admissionTimeout(env),
+        diagnosticsDir: env.HAL_DIAGNOSTICS_DIR,
       };
       return new MeetRuntime(meetOpts);
     }
@@ -74,6 +76,7 @@ export function createRuntime(
         // bot's identity on both platforms.
         userDataDir: env.HAL_USER_DATA_DIR,
         admissionTimeoutMs: admissionTimeout(env),
+        diagnosticsDir: env.HAL_DIAGNOSTICS_DIR,
         passcode: env.ZOOM_PASSCODE,
       };
       return new ZoomRuntime(opts);
