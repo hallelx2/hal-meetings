@@ -58,6 +58,7 @@ fetch_env() {
     # optional. Mounted from /opt/hal/chrome-profile on the host.
     echo "HAL_USER_DATA_DIR=/data/chrome-profile"
     echo "HAL_AUDIO_DIR=/tmp/hal-audio"
+    echo "HAL_DIAGNOSTICS_DIR=/tmp/hal-audio"
     echo "NODE_ENV=production"
     echo "LOG_LEVEL=info"
     aws ssm get-parameters-by-path --region "$REGION" --path "$SSM_PATH" --with-decryption --recursive \

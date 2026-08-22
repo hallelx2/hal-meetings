@@ -1,6 +1,7 @@
 import { chromium, type Browser, type Page, type BrowserContext } from 'playwright';
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
+import { captureFailure } from './diagnostics';
 
 /**
  * The hang-up button — present for exactly as long as we are in the call, and
@@ -52,6 +53,9 @@ export interface MeetRuntimeOptions {
   slowMoMs?: number;
   /** How long to wait for admission before giving up. Default 90s. */
   admissionTimeoutMs?: number;
+  /** Where to drop a screenshot when a join fails. Optional — the element
+   *  inventory goes to the log either way, which is what gets read over SSH. */
+  diagnosticsDir?: string;
 }
 
 /**
@@ -142,40 +146,56 @@ export class MeetRuntime implements BotRuntime {
     // stray about:blank behind for the life of the meeting.
     const page = context.pages()[0] ?? (await context.newPage());
 
-    log.info({ meetingUrl: joinOpts.meetingUrl }, 'navigating to Meet URL');
+    /**
+     * Every failure from here on reports what the page looked like when it
+     * happened, then closes the browser. Both halves matter: the inventory is
+     * how a DOM change gets diagnosed from a log instead of a hand-written
+     * probe, and the cleanup is what stops one failure orphaning Chromium on
+     * the profile lock.
+     */
+    const failed = async (e: unknown): Promise<never> => {
+      await captureFailure(page, log, 'meet-join', this.opts.diagnosticsDir);
+      await this.cleanup(context, page);
+      throw e;
+    };
+
+    try {
+      log.info({ meetingUrl: joinOpts.meetingUrl }, 'navigating to Meet URL');
     // `domcontentloaded`, not `load`: Meet is a long-polling SPA whose load
     // event can lag far behind the page being usable, and waiting for it made
     // a working join look like a dead one.
-    await page.goto(joinOpts.meetingUrl, { waitUntil: 'domcontentloaded', timeout: 90_000 });
-    await page.waitForTimeout(3_000);
+      await page.goto(joinOpts.meetingUrl, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+      await page.waitForTimeout(3_000);
 
     // Step 0: clear the tooltips Meet stacks over the pre-join screen. The
     // "Sign in with your Google account" bubble is the usual one, and while it
     // does not always cover the join button it does take focus.
-    await this.dismissTooltips(page, log);
+      await this.dismissTooltips(page, log);
 
     // Step 1: name entry (guest mode). May be skipped if signed in.
-    await this.maybeEnterName(page, joinOpts.botDisplayName, log);
+      await this.maybeEnterName(page, joinOpts.botDisplayName, log);
 
     // Step 2: turn off the camera (we don't have one) and mic (we'll unmute later
     // if/when in speak mode). These are the labeled buttons before joining.
-    await this.muteBeforeJoining(page, log);
+      await this.muteBeforeJoining(page, log);
 
     // Step 3: click "Ask to join" or "Join now".
-    await this.clickJoin(page, log);
+      await this.clickJoin(page, log);
 
     // Step 4: wait for admission. Either we're in-call (chat icon visible),
     // or we got bounced from the lobby.
-    const admitted = await this.waitForAdmission(
-      page,
-      this.opts.admissionTimeoutMs ?? 90_000,
-      log,
-    );
+      const admitted = await this.waitForAdmission(
+        page,
+        this.opts.admissionTimeoutMs ?? 90_000,
+        log,
+      );
 
-    if (!admitted) {
-      emit({ kind: 'kicked', reason: 'not admitted within timeout' });
-      await this.cleanup(context, page);
-      throw new Error('[@hal/agent meet] not admitted to meeting');
+      if (!admitted) {
+        emit({ kind: 'kicked', reason: 'not admitted within timeout' });
+        throw new Error('[@hal/agent meet] not admitted to meeting');
+      }
+    } catch (e) {
+      return failed(e);
     }
 
     emit({ kind: 'joined', at: new Date() });
@@ -189,8 +209,7 @@ export class MeetRuntime implements BotRuntime {
     try {
       await this.postDisclosure(page, joinOpts.disclosure, log);
     } catch (e) {
-      await this.cleanup(context, page);
-      throw e;
+      return failed(e);
     }
     emit({ kind: 'disclosed' });
 
