@@ -5,6 +5,7 @@
  * Two top-level commands:
  *   hal-agent join <url> --user <id> [...]    Run a one-shot session against a meeting URL.
  *   hal-agent worker                          Run as a long-lived job consumer.
+ *   hal-agent canary --url <url>              Prove the pipeline still works, unattended.
  */
 import { renderBotName } from '@hal/meeting-links';
 import { Command } from 'commander';
@@ -20,6 +21,7 @@ import { ResendEmailSender, NullEmailSender } from './email/resend';
 import { JobConsumer } from './jobs/consumer';
 import { makeJoinMeetingHandler } from './jobs/handlers';
 import { runMeetingSession } from './pipeline/meeting-session';
+import { runCanary } from './canary/run';
 import { requireWorkspaceForUser } from './workspace';
 import type { Platform } from '@hal/db';
 
@@ -123,6 +125,50 @@ program
     } finally {
       await dbHandle.close();
     }
+  });
+
+/**
+ * The unattended pipeline check.
+ *
+ * Deliberately touches no database and writes no meeting row: a canary that
+ * persisted would put synthetic meetings in the operator's history, and one
+ * that needed a workspace could fail for reasons that have nothing to do with
+ * whether Hal can still join a call.
+ *
+ * Exits non-zero on any failed step, so cron, systemd or CI can act on it
+ * without parsing the log.
+ */
+program
+  .command('canary')
+  .description('Join a meeting you own, prove every stage works, and leave')
+  .requiredOption('--url <url>', 'meeting URL the operator controls')
+  .option('--platform <platform>', 'meet | zoom', 'meet')
+  .option('--dwell <seconds>', 'how long to stay and listen', '45')
+  .option('--name <name>', 'display name override')
+  .action(async (opts: { url: string; platform: string; dwell: string; name?: string }) => {
+    const cfg = loadConfig();
+    const log = createLogger({ level: cfg.logLevel, context: { cmd: 'canary' } });
+
+    const runtime = createRuntime(opts.platform as Platform);
+    const audio = new PulseAudioCapture({ sink: cfg.pulseSink }, log);
+    const stt = createSttFromEnv();
+
+    const report = await runCanary(
+      { runtime, audio, stt, log },
+      {
+        meetingUrl: opts.url,
+        botDisplayName: opts.name ?? renderBotName(cfg.botDisplayName, 'canary'),
+        disclosure: cfg.botDisclosure.replace('{{user}}', 'canary'),
+        dwellMs: Number(opts.dwell) * 1000,
+      },
+    ).catch((e: Error) => {
+      // A throw from the harness itself is still a canary failure, and must not
+      // exit zero merely because it failed in an unexpected way.
+      log.fatal({ err: e.message }, 'canary harness failed');
+      return null;
+    });
+
+    process.exit(report?.ok ? 0 : 1);
   });
 
 program
