@@ -47,7 +47,7 @@ fetch_env() {
     echo "GEMINI_MODEL=gemini-2.5-flash"
     echo "STT_PROVIDER=deepgram"
     echo "HAL_BOT_DISPLAY_NAME=Hal · AI for {{user}}"
-    echo "HAL_BOT_DISCLOSURE=Hi — I'm Hal, an AI assistant joining on {{user}}'s behalf. I'm transcribing this meeting. Reply '/hal stop' in chat to remove me."
+    echo "HAL_BOT_DISCLOSURE=Hi — I'm Hal, an AI assistant joining on {{user}}'s behalf. I'm transcribing this meeting. Reply '/hal stop' or '/hal leave' in chat and I'll go."
     echo "HAL_PULSE_SINK=halsink"
     # Headed, on the container's Xvfb display. Playwright's headless Chromium
     # emits no audio at all, so a headless worker records silence while every

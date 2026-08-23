@@ -3,6 +3,7 @@ import { parseZoomUrl } from '@hal/meeting-links';
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
 import { captureFailure } from './diagnostics';
+import { findKillCommand, isOwnDisclosure, newText } from './chat-commands';
 
 export interface ZoomRuntimeOptions {
   /** PulseAudio sink to route Chromium audio to (must exist in the container). */
@@ -160,7 +161,7 @@ export class ZoomRuntime implements BotRuntime {
     }
     emit({ kind: 'disclosed' });
 
-    const stopWatching = this.watchChatAndStatus(page, emit, log);
+    const stopWatching = this.watchChatAndStatus(page, emit, log, joinOpts.disclosure);
 
     let left = false;
     const leave = async (reason: string) => {
@@ -383,27 +384,36 @@ export class ZoomRuntime implements BotRuntime {
     page: Page,
     emit: (e: RuntimeEvent) => void,
     log: Logger,
+    disclosure: string,
   ): () => void {
     const seen = new Set<string>();
+    let lastPanelText = '';
     const interval = setInterval(() => {
       void (async () => {
         try {
-          const items = await page.locator('[class*="chat-item"], [id^="chat-list-item"]').all();
-          for (const item of items) {
-            const text = ((await item.textContent()) ?? '').trim();
-            if (!text || seen.has(text)) continue;
-            seen.add(text);
+          // The panel as a whole, not its message nodes — same reasoning as
+          // Meet: Zoom's chat markup is unversioned, and enumerating it is a
+          // guess that fails silently while the disclosure promises otherwise.
+          const panelText =
+            (
+              await page
+                .locator('[class*="chat-container"], [aria-label*="chat" i], aside')
+                .first()
+                .textContent()
+                .catch(() => '')
+            )?.trim() ?? '';
 
-            // Zoom renders "Name 12:01 PM message" in one node; the sender is
-            // the first line when the message is rendered with a header, and
-            // absent on consecutive messages from the same person.
-            const [head, ...rest] = text.split('\n');
-            const body = (rest.join('\n') || head || '').trim();
-            const from = rest.length ? (head ?? 'unknown').trim() : 'unknown';
-
-            emit({ kind: 'chat-message', from, text: body });
-            if (body.toLowerCase().startsWith('/hal stop')) {
-              emit({ kind: 'kill-requested', from });
+          if (panelText) {
+            const fresh = newText(lastPanelText, panelText);
+            lastPanelText = panelText;
+            if (fresh && !isOwnDisclosure(fresh, disclosure)) {
+              const command = findKillCommand(fresh);
+              if (command && !seen.has(command + fresh.length)) {
+                seen.add(command + fresh.length);
+                log.info({ command }, 'kill requested in zoom chat');
+                emit({ kind: 'chat-message', from: 'participant', text: fresh.slice(0, 200) });
+                emit({ kind: 'kill-requested', from: 'participant' });
+              }
             }
           }
 

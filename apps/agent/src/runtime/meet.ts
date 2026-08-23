@@ -2,6 +2,7 @@ import { chromium, type Browser, type Page, type BrowserContext } from 'playwrig
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
 import { captureFailure } from './diagnostics';
+import { findKillCommand, isOwnDisclosure, newText } from './chat-commands';
 
 /**
  * The hang-up button — present for exactly as long as we are in the call, and
@@ -11,9 +12,21 @@ import { captureFailure } from './diagnostics';
 const IN_CALL_SELECTOR =
   'button[aria-label*="Leave call" i], button[aria-label*="End call" i], button[aria-label*="Hang up" i]';
 
-/** Chat message nodes. Meet gives these no stable hook, so this is a best effort. */
-const CHAT_MESSAGE_SELECTOR =
-  '[data-message-text], [jsname][data-sender-name], div[role="listitem"], [class*="chat-message"]';
+/**
+ * The chat *panel*, not the message nodes inside it.
+ *
+ * Enumerating messages meant guessing Google's internal class names, and that
+ * guess matched nothing for an entire meeting — silently — while the
+ * disclosure promised participants they could remove Hal. Reading the panel's
+ * whole text and diffing it needs only one assumption: that a chat message
+ * eventually becomes visible text inside the chat panel.
+ */
+const CHAT_PANEL_SELECTOR = [
+  'div[aria-label*="chat" i][role="region"]',
+  'div[role="complementary"]',
+  'aside',
+  '[aria-live="polite"]',
+].join(', ');
 
 /**
  * Chat is off, so Hal cannot announce itself — and therefore must not record.
@@ -214,7 +227,7 @@ export class MeetRuntime implements BotRuntime {
     emit({ kind: 'disclosed' });
 
     // Step 6: subscribe to chat for /hal stop and listen for "you've been removed" UI.
-    const stopWatching = this.watchCall(page, emit, log);
+    const stopWatching = this.watchCall(page, emit, log, joinOpts.disclosure);
 
     let left = false;
     const leave = async (reason: string) => {
@@ -474,8 +487,10 @@ export class MeetRuntime implements BotRuntime {
     page: Page,
     emit: (e: RuntimeEvent) => void,
     log: Logger,
+    disclosure: string,
   ): () => void {
     const seen = new Set<string>();
+    let lastPanelText = '';
     // One missed poll is a re-render. Three in a row is the call being over.
     let missingInCallUi = 0;
     let chatNodesEverSeen = false;
@@ -493,20 +508,30 @@ export class MeetRuntime implements BotRuntime {
         if (done) return;
         polls += 1;
         try {
-          for (const node of await page.locator(CHAT_MESSAGE_SELECTOR).all()) {
+          const panelText = (
+            await page
+              .locator(CHAT_PANEL_SELECTOR)
+              .first()
+              .textContent()
+              .catch(() => '')
+          )?.trim() ?? '';
+
+          if (panelText) {
             chatNodesEverSeen = true;
-            const text = ((await node.textContent()) ?? '').trim();
-            if (!text || seen.has(text)) continue;
-            seen.add(text);
+            const fresh = newText(lastPanelText, panelText);
+            lastPanelText = panelText;
 
-            const [head, ...rest] = text.split('\n');
-            const body = (rest.join('\n') || head || '').trim();
-            const from = rest.length ? (head ?? 'unknown').trim() : 'unknown';
-
-            emit({ kind: 'chat-message', from, text: body });
-            if (body.toLowerCase().includes('/hal stop')) {
-              log.info({ from }, 'kill requested in chat');
-              emit({ kind: 'kill-requested', from });
+            // Hal's own disclosure contains the literal "/hal stop". Without
+            // this it reads its own announcement and leaves the meeting a
+            // moment after joining it.
+            if (fresh && !isOwnDisclosure(fresh, disclosure)) {
+              const command = findKillCommand(fresh);
+              if (command && !seen.has(command + fresh.length)) {
+                seen.add(command + fresh.length);
+                log.info({ command }, 'kill requested in chat');
+                emit({ kind: 'chat-message', from: 'participant', text: fresh.slice(0, 200) });
+                emit({ kind: 'kill-requested', from: 'participant' });
+              }
             }
           }
 
@@ -515,7 +540,7 @@ export class MeetRuntime implements BotRuntime {
           // pass for calm.
           if (!chatNodesEverSeen && polls === 24) {
             log.warn(
-              'chat watcher has matched no nodes in 60s — /hal stop may not be detectable; selectors likely stale',
+              'chat panel has produced no text in 60s — /hal stop may not be detectable; the panel selector is likely stale',
             );
           }
 
