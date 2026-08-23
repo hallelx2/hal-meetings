@@ -63,7 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AgentConfig {
     botDisplayName: env.HAL_BOT_DISPLAY_NAME ?? DEFAULT_BOT_NAME_TEMPLATE,
     botDisclosure:
       env.HAL_BOT_DISCLOSURE ??
-      "Hi — I'm Hal, an AI assistant joining on {{user}}'s behalf. I'm transcribing this meeting. Reply '/hal stop' in chat to remove me.",
+      "Hi — I'm Hal, an AI assistant joining on {{user}}'s behalf. I'm transcribing this meeting. Reply '/hal stop' or '/hal leave' in chat and I'll go.",
   };
 
   return cfg;
