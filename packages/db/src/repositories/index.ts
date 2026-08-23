@@ -4,6 +4,7 @@ import { WorkspacesRepository } from './workspaces';
 import { OauthTokensRepository } from './oauth-tokens';
 import { MeetingsRepository } from './meetings';
 import { TranscriptsRepository } from './transcripts';
+import { TranscriptSegmentsRepository } from './transcript-segments';
 import { JobsRepository } from './jobs';
 import { AuditLogRepository } from './audit-log';
 
@@ -13,6 +14,7 @@ export {
   OauthTokensRepository,
   MeetingsRepository,
   TranscriptsRepository,
+  TranscriptSegmentsRepository,
   JobsRepository,
   AuditLogRepository,
 };
@@ -28,6 +30,7 @@ export interface Repositories {
   oauthTokens: OauthTokensRepository;
   meetings: MeetingsRepository;
   transcripts: TranscriptsRepository;
+  transcriptSegments: TranscriptSegmentsRepository;
   jobs: JobsRepository;
   auditLog: AuditLogRepository;
 }
@@ -39,6 +42,7 @@ export function makeRepositories(db: Db): Repositories {
     oauthTokens: new OauthTokensRepository(db),
     meetings: new MeetingsRepository(db),
     transcripts: new TranscriptsRepository(db),
+    transcriptSegments: new TranscriptSegmentsRepository(db),
     jobs: new JobsRepository(db),
     auditLog: new AuditLogRepository(db),
   };
