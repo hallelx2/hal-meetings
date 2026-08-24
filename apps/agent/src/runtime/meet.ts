@@ -47,6 +47,14 @@ export class ChatUnavailableError extends Error {
 /** Meet's relabelled textarea when the host has disabled chat. */
 const CHAT_DISABLED_SELECTOR = 'textarea[aria-label*="Chat isn" i][aria-label*="available" i]';
 
+/**
+ * How long a chat box gets to become usable before we conclude it never will.
+ *
+ * Generous, because the cost is asymmetric: a few seconds of patience against
+ * aborting a join that would have worked.
+ */
+const CHAT_READY_TIMEOUT_MS = 12_000;
+
 /** The chat composer, across the shapes Meet has shipped. */
 const CHAT_INPUT_SELECTOR = [
   'textarea[aria-label*="Send a message" i]',
@@ -431,8 +439,18 @@ export class MeetRuntime implements BotRuntime {
   private async postDisclosure(page: Page, disclosure: string, log: Logger): Promise<void> {
     try {
       await this.openChat(page);
-      await this.sendChat(page, disclosure);
-      log.info('disclosure posted to chat');
+      await this.sendChat(page, disclosure, log);
+
+      // Verified, not assumed. A keystroke that did not throw is not a message
+      // that was delivered, and every participant in the room is relying on
+      // this one having been.
+      if (await this.confirmChatPosted(page, disclosure)) {
+        log.info('disclosure posted to chat and confirmed visible');
+      } else {
+        log.warn(
+          'typed the disclosure but could not confirm it appeared in the chat panel — treating it as posted, but the panel selector may be stale',
+        );
+      }
     } catch (e) {
       log.warn({ err: (e as Error).message }, 'failed to post disclosure');
       throw e;
@@ -448,26 +466,81 @@ export class MeetRuntime implements BotRuntime {
    * exactly like a stale selector. The two are checked separately because they
    * need opposite responses: one is our bug, the other is the host's setting.
    */
-  private async sendChat(page: Page, text: string): Promise<void> {
-    const unavailable = page.locator(CHAT_DISABLED_SELECTOR).first();
-    if (await unavailable.isVisible({ timeout: 1_500 }).catch(() => false)) {
-      throw new ChatUnavailableError();
-    }
-
-    const input = page.locator(CHAT_INPUT_SELECTOR).first();
-
-    try {
-      await input.waitFor({ state: 'visible', timeout: 5_000 });
-    } catch {
-      // Chat may have been switched off between the two probes.
-      if (await unavailable.isVisible({ timeout: 500 }).catch(() => false)) {
-        throw new ChatUnavailableError();
-      }
-      throw new Error('[@hal/agent meet] could not find the chat input');
-    }
-
+  private async sendChat(page: Page, text: string, log?: Logger): Promise<void> {
+    const input = await this.waitForChatInput(page, log);
     await input.fill(text);
     await input.press('Enter');
+  }
+
+  /**
+   * Wait for a chat box we can actually type in.
+   *
+   * Deliberately patient. A single observation of the "Chat isn't available"
+   * textarea is not proof that the host disabled chat — Meet mounts the panel
+   * before it is usable, and treating one reading as final would abort joins
+   * that would have worked a second later. Aborting a good join is a worse
+   * failure than waiting a few seconds for a bad one.
+   *
+   * So an enabled composer wins at any point in the window, and the disabled
+   * state only becomes a verdict once it has survived the whole window.
+   */
+  private async waitForChatInput(page: Page, log?: Logger) {
+    const deadline = Date.now() + CHAT_READY_TIMEOUT_MS;
+    let sawDisabled = false;
+
+    while (Date.now() < deadline) {
+      const input = page.locator(CHAT_INPUT_SELECTOR).first();
+      if (await input.isVisible({ timeout: 500 }).catch(() => false)) {
+        if (await input.isEnabled().catch(() => true)) return input;
+      }
+
+      const disabled = await page
+        .locator(CHAT_DISABLED_SELECTOR)
+        .first()
+        .isVisible({ timeout: 250 })
+        .catch(() => false);
+
+      if (disabled && !sawDisabled) {
+        sawDisabled = true;
+        log?.debug('chat box reports unavailable — waiting in case it is still loading');
+      }
+
+      await page.waitForTimeout(750);
+    }
+
+    if (sawDisabled) throw new ChatUnavailableError();
+    throw new Error('[@hal/agent meet] could not find the chat input');
+  }
+
+  /**
+   * Did the disclosure actually land in the chat?
+   *
+   * Typing and pressing Enter is not evidence that a message was sent. Without
+   * this the runtime reports "disclosure posted to chat" whenever the keystroke
+   * did not throw — and the disclosure is the entire basis on which recording
+   * other people is acceptable, so it is the last claim in this codebase that
+   * should be taken on trust.
+   *
+   * Matched on a distinctive fragment: chat clients wrap, truncate, and prepend
+   * the sender name, so the whole string rarely appears verbatim.
+   */
+  private async confirmChatPosted(page: Page, text: string): Promise<boolean> {
+    const fingerprint = text.replace(/\s+/g, ' ').trim().slice(0, 30);
+    if (!fingerprint) return false;
+
+    const deadline = Date.now() + 6_000;
+    while (Date.now() < deadline) {
+      const panel = (
+        await page
+          .locator(CHAT_PANEL_SELECTOR)
+          .first()
+          .textContent()
+          .catch(() => '')
+      )?.replace(/\s+/g, ' ') ?? '';
+      if (panel.includes(fingerprint)) return true;
+      await page.waitForTimeout(500);
+    }
+    return false;
   }
 
   /**
