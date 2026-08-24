@@ -254,3 +254,90 @@ export function halPlan(entry: CalendarEntry, now: Date): HalPlan {
     stages: withStates(every('pending')),
   };
 }
+
+/**
+ * The plan for a meeting Hal has a row for, driven by that row's real status.
+ *
+ * `halPlan` above answers "what will Hal do about this calendar event", where
+ * the status is usually absent and the clock does most of the work. This
+ * answers "what is Hal doing about this meeting right now", from the status the
+ * worker has actually written.
+ *
+ * Both read the same STAGES, so the dashboard and the meeting page cannot
+ * describe the pipeline differently — which they would within a week if the
+ * list were written twice.
+ */
+export function planForMeeting(input: {
+  status: string;
+  policy?: string | null;
+  failureReason?: string | null;
+}): HalPlan {
+  switch (input.status) {
+    case 'completed':
+      return {
+        posture: 'done',
+        headline: 'Hal attended. The write-up is encrypted in your workspace.',
+        reason: null,
+        sendable: false,
+        stages: withStates(every('done')),
+      };
+
+    case 'failed':
+      return {
+        posture: 'failed',
+        headline: 'Hal could not finish this meeting.',
+        // Verbatim. Every failure this week was diagnosed from a container log
+        // the user could not see; the agent's own words belong on the screen.
+        reason: input.failureReason ?? 'The agent did not record a reason.',
+        sendable: true,
+        stages: withStates(every('blocked')),
+      };
+
+    case 'cancelled':
+      return {
+        posture: 'blocked',
+        headline: 'This meeting was cancelled.',
+        reason: null,
+        sendable: false,
+        stages: withStates(every('blocked')),
+      };
+
+    case 'in-progress':
+      return {
+        posture: 'live',
+        headline: 'Hal is in this meeting right now.',
+        reason: null,
+        sendable: false,
+        stages: withStates(['done', 'done', 'active', 'active', 'pending', 'pending', 'pending']),
+      };
+
+    case 'joining':
+      return {
+        posture: 'joining',
+        headline: 'Hal is joining — let it in when it asks.',
+        reason: null,
+        sendable: false,
+        stages: withStates([
+          'active',
+          'pending',
+          'pending',
+          'pending',
+          'pending',
+          'pending',
+          'pending',
+        ]),
+      };
+
+    default:
+      return {
+        posture: input.policy === 'auto' ? 'booked' : 'unbooked',
+        headline:
+          input.policy === 'auto'
+            ? 'Hal is queued for this meeting.'
+            : 'Hal is not booked for this one.',
+        reason: null,
+        sendable: input.policy !== 'auto',
+        stages: withStates(every('pending')),
+      };
+  }
+}
