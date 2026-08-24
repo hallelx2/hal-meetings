@@ -4,5 +4,6 @@ export * from './oauth-tokens';
 export * from './auth';
 export * from './meetings';
 export * from './transcripts';
+export * from './transcript-segments';
 export * from './jobs';
 export * from './audit-log';

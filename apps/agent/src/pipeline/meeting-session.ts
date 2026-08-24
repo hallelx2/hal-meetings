@@ -79,10 +79,57 @@ export async function runMeetingSession(
     language: 'en',
   });
 
-  // Forward STT events into the log.
+  // Forward STT events into the log, and persist every final line as it
+  // arrives.
+  //
+  // The whole-meeting transcript is still written at the end and is still what
+  // the summary is built from. Segments exist for the two things that artifact
+  // cannot do: let a meeting be watched while it happens, and survive a worker
+  // that dies mid-call. Before this, a transcript lived only in this process's
+  // heap until the meeting ended — a container restart destroyed nine good
+  // lines of a real meeting, and there was nothing to show for an hour of
+  // captured audio.
+  //
+  // Deliberately fire-and-forget: a database hiccup must slow down or fail the
+  // *recording*, which is the irreplaceable part. A lost segment costs the live
+  // view a line; a stalled STT pump costs the meeting.
+  let seq = 0;
   sttSession.on((e) => {
-    if (e.kind === 'final') log.info({ line: e.line.text.slice(0, 80) }, 'stt final');
-    if (e.kind === 'error') log.error({ err: e.error.message }, 'stt error');
+    if (e.kind === 'error') {
+      log.error({ err: e.error.message }, 'stt error');
+      return;
+    }
+    if (e.kind !== 'final') return;
+
+    log.info({ line: e.line.text.slice(0, 80) }, 'stt final');
+
+    const text = e.line.text.trim();
+    if (!text) return;
+
+    const mySeq = seq;
+    seq += 1;
+
+    void envelope
+      .encryptString({
+        wrappedDek: ctx.userWrappedDek,
+        keyId: ctx.userKeyId,
+        plaintext: text,
+      })
+      .then((textCt) =>
+        repos.transcriptSegments.append({
+          workspaceId: ctx.workspaceId,
+          userId: ctx.userId,
+          meetingId: ctx.meetingId,
+          seq: mySeq,
+          startMs: Number.isFinite(e.line.startSec) ? Math.round(e.line.startSec * 1000) : null,
+          endMs: Number.isFinite(e.line.endSec) ? Math.round(e.line.endSec * 1000) : null,
+          speaker: e.line.speakerName ?? e.line.speaker ?? null,
+          textCt,
+        }),
+      )
+      .catch((err: Error) => {
+        log.warn({ err: err.message, seq: mySeq }, 'failed to persist transcript segment');
+      });
   });
 
   // 2. Begin audio capture, pipe to STT.
