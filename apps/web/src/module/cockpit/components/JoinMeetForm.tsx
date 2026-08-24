@@ -28,7 +28,10 @@ export function JoinMeetForm({ botName }: { botName: string }) {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ url }),
         });
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          meetingId?: string;
+        };
         setBusy(false);
         if (!res.ok) {
           setMessage(
@@ -39,6 +42,13 @@ export function JoinMeetForm({ botName }: { botName: string }) {
           return;
         }
         setUrl('');
+        // Straight to the page for this meeting. Everything that happens next —
+        // the lobby, the disclosure, the transcript, a failure and its reason —
+        // is visible there instead of in a container log.
+        if (data.meetingId) {
+          router.push(`/meetings/${data.meetingId}`);
+          return;
+        }
         setMessage(`Hal is joining. Let “${botName}” in when it asks — it waits ten minutes.`);
         router.refresh();
       }}

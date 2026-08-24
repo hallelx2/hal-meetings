@@ -11,9 +11,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
 
-  let body: { url?: unknown };
+  let body: { url?: unknown; meetingId?: unknown };
   try {
-    body = (await request.json()) as { url?: unknown };
+    body = (await request.json()) as { url?: unknown; meetingId?: unknown };
   } catch {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
@@ -33,6 +33,9 @@ export async function POST(request: Request) {
     envelope: getEnvelope(),
     user,
     url,
+    // Ownership is re-checked in the service against the caller's workspace —
+    // an id in a request body is not a capability.
+    meetingId: typeof body.meetingId === 'string' ? body.meetingId : undefined,
   });
 
   return NextResponse.json({ ok: true, meetingId: result.meetingId, jobId: result.jobId });

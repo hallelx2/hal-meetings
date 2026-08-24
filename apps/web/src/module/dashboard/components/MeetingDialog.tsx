@@ -58,12 +58,20 @@ function SendHalToThisMeeting({ url }: { url: string }) {
             body: JSON.stringify({ url }),
           }).catch(() => null);
 
+          const data = (await res?.json().catch(() => ({}))) as { meetingId?: string };
           setBusy(false);
           if (!res?.ok) {
             setMessage('Could not enqueue the join. The link is still open below.');
             return;
           }
-          setMessage('Hal is on its way. Admit the guest named Hal in the Meet lobby.');
+          // The meeting's own page shows the lobby, the disclosure, the
+          // transcript and any failure reason — all of which used to be
+          // invisible once this dialog closed.
+          if (data.meetingId) {
+            router.push(`/meetings/${data.meetingId}`);
+            return;
+          }
+          setMessage('Hal is on its way. Let it in when it asks.');
           router.refresh();
         }}
         className="inline-flex h-11 items-center justify-center bg-ink px-5 text-[13px] font-bold uppercase tracking-adora text-canvas-white transition-colors hover:bg-ink-soft disabled:opacity-60"
