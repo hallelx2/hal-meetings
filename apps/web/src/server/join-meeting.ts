@@ -35,6 +35,8 @@ export async function enqueueJoinMeeting(input: {
   url: string;
   /** Rejoin this meeting instead of creating a new one, if the caller owns it. */
   meetingId?: string;
+  /** Where this came from, for the meeting's name. */
+  title?: string;
 }): Promise<{ meetingId: string; jobId: string }> {
   const link = parseJoinableUrl(input.url);
   if (!link) throw new Error('invalid_meet_url');
@@ -74,7 +76,7 @@ export async function enqueueJoinMeeting(input: {
     userId: input.user.id,
     platform: link.platform,
     externalUrl: url,
-    title: link.platform === 'zoom' ? 'Pasted Zoom' : 'Pasted Meet',
+    title: input.title ?? (link.platform === 'zoom' ? 'Pasted Zoom' : 'Pasted Meet'),
     policy: 'auto',
     mode: 'listen',
     status: 'scheduled',
