@@ -73,21 +73,50 @@ export function findKillCommand(text: string): string | null {
 export function stripOwnDisclosure(text: string, disclosure: string): string {
   if (!disclosure || !text) return text;
 
-  const haystack = text.replace(/\s+/g, ' ');
+  let haystack = text.replace(/\s+/g, ' ');
   const needle = disclosure.replace(/\s+/g, ' ').trim();
   if (!needle) return haystack;
 
-  // Whole message first, then progressively shorter prefixes: chat clients
-  // wrap, truncate and interleave the sender name, so the full string is often
-  // not present verbatim.
+  // Every occurrence, not the first. Meet keeps the disclosure in the panel and
+  // the watcher re-reads the whole panel, so the same message is seen again on
+  // every poll — removing only one copy left the rest, and the `/hal stop`
+  // inside it ended the meeting three seconds after joining. Verified live.
   for (const length of [needle.length, 80, 60, 40]) {
     const fragment = needle.slice(0, Math.min(length, needle.length));
     if (fragment.length < 20) break;
-    const at = haystack.toLowerCase().indexOf(fragment.toLowerCase());
-    if (at !== -1) {
-      return (haystack.slice(0, at) + ' ' + haystack.slice(at + fragment.length)).trim();
+
+    for (;;) {
+      const at = haystack.toLowerCase().indexOf(fragment.toLowerCase());
+      if (at === -1) break;
+      haystack = (haystack.slice(0, at) + ' ' + haystack.slice(at + fragment.length)).trim();
     }
   }
 
-  return haystack;
+  // Belt and braces. The disclosure names the commands it advertises, so any
+  // surviving fragment of it still carries them — and a bot that removes
+  // itself on sight of its own announcement is worse than one that lingers.
+  return stripQuotedCommands(haystack, disclosure);
+}
+
+/**
+ * Drop kill commands that are only present because the disclosure quotes them.
+ *
+ * The disclosure says: Reply '/hal stop' or '/hal leave' in chat and I'll go.
+ * Those are quoted, so a command wrapped in the same quotation marks the
+ * disclosure uses is almost certainly Hal's own text surviving a partial strip
+ * — never a participant, who types the command bare.
+ */
+function stripQuotedCommands(text: string, disclosure: string): string {
+  let out = text;
+  for (const command of KILL_COMMANDS) {
+    if (!disclosure.toLowerCase().includes(command)) continue;
+    for (const quoted of [`'${command}'`, `"${command}"`, `\u2018${command}\u2019`, `\u201c${command}\u201d`]) {
+      out = out.replace(new RegExp(escapeRegExp(quoted), 'gi'), ' ');
+    }
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

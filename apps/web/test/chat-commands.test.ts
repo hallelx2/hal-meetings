@@ -7,7 +7,7 @@ import {
 } from '../../agent/src/runtime/chat-commands';
 
 const DISCLOSURE =
-  "Hi — I'm Hal, an AI assistant joining on Oludele Halleluyah's behalf. I'm transcribing this meeting. Reply '/hal stop' in chat to remove me.";
+  "Hi — I'm Hal, an AI assistant joining on Oludele Halleluyah's behalf. I'm transcribing this meeting. Reply '/hal stop' or '/hal leave' in chat and I'll go.";
 
 describe('newText', () => {
   it('returns only the appended part in the normal case', () => {
@@ -107,5 +107,35 @@ describe('stripOwnDisclosure', () => {
   it('does not remove an unrelated message that merely mentions Hal', () => {
     const out = stripOwnDisclosure('Ada: hal is transcribing this meeting?', DISCLOSURE);
     expect(out).toContain('hal is transcribing');
+  });
+});
+
+describe('stripOwnDisclosure — not triggering itself', () => {
+  it('survives the panel being re-read, which repeats the disclosure', () => {
+    // Verified live: the watcher re-reads the whole panel every poll, so the
+    // disclosure appears again and again. Removing only the first copy left the
+    // rest, and the quoted "/hal stop" inside it ended the meeting three
+    // seconds after joining.
+    const repeated = `${DISCLOSURE} ${DISCLOSURE} ${DISCLOSURE}`;
+    expect(findKillCommand(stripOwnDisclosure(repeated, DISCLOSURE))).toBeNull();
+  });
+
+  it('ignores the commands the disclosure quotes, even after a partial strip', () => {
+    // A fragment of the disclosure that survives still carries the quoted
+    // commands. A bot that removes itself on sight of its own announcement is
+    // worse than one that lingers.
+    const fragment = "Reply '/hal stop' or '/hal leave' in chat and I'll go.";
+    expect(findKillCommand(stripOwnDisclosure(fragment, DISCLOSURE))).toBeNull();
+  });
+
+  it('still hears a participant typing the command bare', () => {
+    // The whole point. Quoted means Hal's own words; bare means a human asking.
+    const chunk = `${DISCLOSURE} Ada 12:05 /hal leave`;
+    expect(findKillCommand(stripOwnDisclosure(chunk, DISCLOSURE))).toBe('/hal leave');
+  });
+
+  it('hears a bare command even when the panel repeats the disclosure', () => {
+    const chunk = `${DISCLOSURE} ${DISCLOSURE} Ada /hal stop`;
+    expect(findKillCommand(stripOwnDisclosure(chunk, DISCLOSURE))).toBe('/hal stop');
   });
 });
