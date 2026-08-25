@@ -13,6 +13,21 @@ const IN_CALL_SELECTOR =
   'button[aria-label*="Leave call" i], button[aria-label*="End call" i], button[aria-label*="Hang up" i]';
 
 /**
+ * Proof we are still waiting outside.
+ *
+ * Meet renders a **Leave call** button in the waiting room — you can give up
+ * on the lobby — so the hang-up button was never evidence of admission. It
+ * appeared 1.7 seconds after clicking "Ask to join", the runtime declared
+ * "admitted to call", and then failed to post the disclosure because the chat
+ * box is naturally dead in the lobby. The chat error was a symptom; this was
+ * the disease.
+ *
+ * Matched on Meet's own words to the guest, which is the one thing on that
+ * screen that means exactly this.
+ */
+const LOBBY_TEXT = /wait until a meeting host|asking to be let in|waiting to be let in|Asking to join/i;
+
+/**
  * The chat *panel*, not the message nodes inside it.
  *
  * Enumerating messages meant guessing Google's internal class names, and that
@@ -414,17 +429,42 @@ export class MeetRuntime implements BotRuntime {
     );
   }
 
+  /**
+   * Wait until Hal is actually *in* the call.
+   *
+   * Both conditions are required, and the second is the one that was missing:
+   * the in-call UI must be present **and** Meet must have stopped telling us to
+   * wait for a host. The hang-up button alone is not admission, because the
+   * lobby has one too.
+   */
   private async waitForAdmission(page: Page, timeoutMs: number, log: Logger): Promise<boolean> {
-    // Heuristic: in-call UI shows the leave-call (hang up) button. The
-    // accessible name is "Leave call" or "End call" depending on host.
-    try {
-      await page.locator(IN_CALL_SELECTOR).first().waitFor({ state: 'visible', timeout: timeoutMs });
-      log.info('admitted to call');
-      return true;
-    } catch {
-      log.warn('admission timed out');
-      return false;
+    const deadline = Date.now() + timeoutMs;
+    let announcedWaiting = false;
+
+    while (Date.now() < deadline) {
+      const inCall = await page
+        .locator(IN_CALL_SELECTOR)
+        .first()
+        .isVisible({ timeout: 500 })
+        .catch(() => false);
+
+      if (inCall) {
+        const body = (await page.locator('body').textContent().catch(() => '')) ?? '';
+        if (!LOBBY_TEXT.test(body)) {
+          log.info('admitted to call');
+          return true;
+        }
+        if (!announcedWaiting) {
+          announcedWaiting = true;
+          log.info('waiting in the lobby for a host to admit Hal');
+        }
+      }
+
+      await page.waitForTimeout(1_500);
     }
+
+    log.warn({ everReachedLobby: announcedWaiting }, 'admission timed out');
+    return false;
   }
 
   private async openChat(page: Page): Promise<void> {
