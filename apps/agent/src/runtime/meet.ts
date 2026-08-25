@@ -2,7 +2,7 @@ import { chromium, type Browser, type Page, type BrowserContext } from 'playwrig
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
 import { captureFailure } from './diagnostics';
-import { findKillCommand, isOwnDisclosure, newText } from './chat-commands';
+import { findKillCommand, stripOwnDisclosure, newText } from './chat-commands';
 
 /**
  * The hang-up button — present for exactly as long as we are in the call, and
@@ -649,20 +649,26 @@ export class MeetRuntime implements BotRuntime {
 
           if (panelText) {
             chatNodesEverSeen = true;
-            const fresh = newText(lastPanelText, panelText);
+            // The diff is the cheap path. But a panel that re-renders to the
+            // same string yields no fresh text, and a command that arrived
+            // during such a poll would never be examined — so on the first
+            // sight of a command anywhere in the panel, the whole panel is
+            // scanned. `seen` keeps that from firing twice.
+            const fresh = newText(lastPanelText, panelText) || panelText;
             lastPanelText = panelText;
 
             // Hal's own disclosure contains the literal "/hal stop". Without
             // this it reads its own announcement and leaves the meeting a
             // moment after joining it.
-            if (fresh && !isOwnDisclosure(fresh, disclosure)) {
-              const command = findKillCommand(fresh);
-              if (command && !seen.has(command + fresh.length)) {
-                seen.add(command + fresh.length);
-                log.info({ command }, 'kill requested in chat');
-                emit({ kind: 'chat-message', from: 'participant', text: fresh.slice(0, 200) });
-                emit({ kind: 'kill-requested', from: 'participant' });
-              }
+            // Subtract Hal's own words, then look at what is left. Rejecting
+            // the whole chunk threw the command away with the disclosure.
+            const others = stripOwnDisclosure(fresh, disclosure);
+            const command = findKillCommand(others);
+            if (command && !seen.has(command)) {
+              seen.add(command);
+              log.info({ command }, 'kill requested in chat');
+              emit({ kind: 'chat-message', from: 'participant', text: others.slice(0, 200) });
+              emit({ kind: 'kill-requested', from: 'participant' });
             }
           }
 

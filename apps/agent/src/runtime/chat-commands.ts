@@ -56,20 +56,38 @@ export function findKillCommand(text: string): string | null {
 }
 
 /**
- * Does this text look like Hal's own disclosure?
+ * Remove Hal's own disclosure from a chunk of chat text.
  *
- * The disclosure contains the literal string "/hal stop" — Hal posts it into
- * the chat itself, so the watcher would read its own message and leave the
- * meeting immediately after announcing itself. This filters exactly that.
+ * The disclosure contains the literal "/hal stop", so without this Hal reads
+ * its own announcement and leaves the meeting moments after joining.
+ *
+ * It **subtracts** rather than rejects, and that distinction is the whole bug
+ * it replaces. The previous version discarded any chunk that contained the
+ * disclosure — but the disclosure is permanently in the panel, so a diff that
+ * happened to include it took the real command down with it. `/hal leave` was
+ * typed into two live meetings and silently swallowed both times.
+ *
+ * Now only the disclosure's own text is cut out; anything else in the chunk
+ * survives.
  */
-export function isOwnDisclosure(text: string, disclosure: string): boolean {
-  if (!disclosure) return false;
-  // Compare on a distinctive fragment rather than the whole string: chat
-  // clients wrap, truncate, and interleave the sender name.
-  const fingerprint = disclosure
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .slice(0, 40)
-    .trim();
-  return fingerprint.length > 0 && text.toLowerCase().replace(/\s+/g, ' ').includes(fingerprint);
+export function stripOwnDisclosure(text: string, disclosure: string): string {
+  if (!disclosure || !text) return text;
+
+  const haystack = text.replace(/\s+/g, ' ');
+  const needle = disclosure.replace(/\s+/g, ' ').trim();
+  if (!needle) return haystack;
+
+  // Whole message first, then progressively shorter prefixes: chat clients
+  // wrap, truncate and interleave the sender name, so the full string is often
+  // not present verbatim.
+  for (const length of [needle.length, 80, 60, 40]) {
+    const fragment = needle.slice(0, Math.min(length, needle.length));
+    if (fragment.length < 20) break;
+    const at = haystack.toLowerCase().indexOf(fragment.toLowerCase());
+    if (at !== -1) {
+      return (haystack.slice(0, at) + ' ' + haystack.slice(at + fragment.length)).trim();
+    }
+  }
+
+  return haystack;
 }
