@@ -32,9 +32,9 @@ const LOBBY_TEXT = /wait until a meeting host|asking to be let in|waiting to be 
  *
  * Enumerating messages meant guessing Google's internal class names, and that
  * guess matched nothing for an entire meeting — silently — while the
- * disclosure promised participants they could remove Hal. Reading the panel's
- * whole text and diffing it needs only one assumption: that a chat message
- * eventually becomes visible text inside the chat panel.
+ * disclosure promised participants they could remove Hal. Reading text and
+ * diffing it needs only one assumption: that a chat message eventually becomes
+ * visible text on the page.
  */
 const CHAT_PANEL_SELECTOR = [
   'div[aria-label*="chat" i][role="region"]',
@@ -42,6 +42,36 @@ const CHAT_PANEL_SELECTOR = [
   'aside',
   '[aria-live="polite"]',
 ].join(', ');
+
+/**
+ * Everything the page is currently showing that could be chat.
+ *
+ * `.first()` was the bug. Several elements match the panel selector — Meet
+ * renders more than one region and aside — and the first in DOM order is not
+ * necessarily the one holding messages. The disclosure check happened to hit a
+ * matching container, so it passed; the watcher polled the same first match and
+ * never saw `/hal leave`, so the kill switch stayed silent with no error to
+ * show for it.
+ *
+ * Reading every match and concatenating removes the guess. The page body is a
+ * last resort: coarse, but a kill command that works is worth more than a tidy
+ * selector, and the caller only ever looks for one specific phrase in it.
+ */
+async function readChatText(page: Page): Promise<string> {
+  const parts: string[] = [];
+
+  for (const node of await page.locator(CHAT_PANEL_SELECTOR).all().catch(() => [])) {
+    const text = await node.textContent().catch(() => '');
+    if (text) parts.push(text);
+  }
+
+  if (parts.length === 0) {
+    const body = await page.locator('body').textContent().catch(() => '');
+    if (body) parts.push(body);
+  }
+
+  return parts.join(' \n ').replace(/\s+/g, ' ').trim();
+}
 
 /**
  * Chat is off, so Hal cannot announce itself — and therefore must not record.
@@ -570,13 +600,7 @@ export class MeetRuntime implements BotRuntime {
 
     const deadline = Date.now() + 6_000;
     while (Date.now() < deadline) {
-      const panel = (
-        await page
-          .locator(CHAT_PANEL_SELECTOR)
-          .first()
-          .textContent()
-          .catch(() => '')
-      )?.replace(/\s+/g, ' ') ?? '';
+      const panel = await readChatText(page);
       if (panel.includes(fingerprint)) return true;
       await page.waitForTimeout(500);
     }
@@ -621,13 +645,7 @@ export class MeetRuntime implements BotRuntime {
         if (done) return;
         polls += 1;
         try {
-          const panelText = (
-            await page
-              .locator(CHAT_PANEL_SELECTOR)
-              .first()
-              .textContent()
-              .catch(() => '')
-          )?.trim() ?? '';
+          const panelText = await readChatText(page);
 
           if (panelText) {
             chatNodesEverSeen = true;
