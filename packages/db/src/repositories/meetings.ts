@@ -63,24 +63,6 @@ export class MeetingsRepository {
    * agent's state, and a re-sync that reset them would silently undo a decision
    * or lose a meeting already in progress.
    */
-  /**
-   * Book Hal for a meeting it was not previously going to attend.
-   *
-   * Separate from `updateSchedule` on purpose: that method is the calendar
-   * sync's, and it deliberately refuses to touch policy so a resync can never
-   * silently un-book a meeting the user asked for. Widening it would remove
-   * that guarantee for the convenience of one caller.
-   */
-  async setPolicy(id: string, policy: string): Promise<MeetingRow> {
-    const [row] = await this.db
-      .update(meetings)
-      .set({ policy, updatedAt: new Date() })
-      .where(eq(meetings.id, id))
-      .returning();
-    if (!row) throw new Error(`[@hal/db] meeting ${id} not found`);
-    return row;
-  }
-
   async updateSchedule(
     id: string,
     patch: Partial<{

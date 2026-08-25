@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../client';
 import {
   transcriptSegments,
@@ -57,6 +57,28 @@ export class TranscriptSegmentsRepository {
       )
       .orderBy(asc(transcriptSegments.seq))
       .limit(limit);
+  }
+
+  /**
+   * Line counts for many meetings at once.
+   *
+   * One query rather than one per meeting: the meetings list renders a count
+   * beside every row, and doing that with `countForMeeting` in a loop is an
+   * N+1 that gets slower exactly as someone uses the product more.
+   */
+  async countsForMeetings(meetingIds: string[]): Promise<Map<string, number>> {
+    if (meetingIds.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        meetingId: transcriptSegments.meetingId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(transcriptSegments)
+      .where(inArray(transcriptSegments.meetingId, meetingIds))
+      .groupBy(transcriptSegments.meetingId);
+
+    return new Map(rows.map((row) => [row.meetingId, row.count]));
   }
 
   /** How many lines exist so far. Cheap enough to poll. */
