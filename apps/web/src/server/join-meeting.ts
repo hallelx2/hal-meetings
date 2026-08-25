@@ -13,7 +13,7 @@ import type {
 export type JoinStore = {
   users: Pick<UsersRepository, 'findByEmail'>;
   workspaces: Pick<WorkspacesRepository, 'findForUser' | 'createPersonal'>;
-  meetings: Pick<MeetingsRepository, 'create' | 'findById' | 'setPolicy'>;
+  meetings: Pick<MeetingsRepository, 'create' | 'findById' | 'updatePolicy'>;
   jobs: Pick<JobsRepository, 'enqueue'>;
 };
 
@@ -65,7 +65,7 @@ export async function enqueueJoinMeeting(input: {
     const existing = await input.store.meetings.findById(input.meetingId);
     if (existing && existing.workspaceId === workspace.id && existing.userId === input.user.id) {
       meeting = existing;
-      await input.store.meetings.setPolicy(existing.id, 'auto');
+      await input.store.meetings.updatePolicy(existing.id, 'auto');
     }
   }
 
