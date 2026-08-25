@@ -3,7 +3,7 @@ import { parseZoomUrl } from '@hal/meeting-links';
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
 import { captureFailure } from './diagnostics';
-import { findKillCommand, isOwnDisclosure, newText } from './chat-commands';
+import { findKillCommand, stripOwnDisclosure, newText } from './chat-commands';
 
 export interface ZoomRuntimeOptions {
   /** PulseAudio sink to route Chromium audio to (must exist in the container). */
@@ -404,16 +404,15 @@ export class ZoomRuntime implements BotRuntime {
             )?.trim() ?? '';
 
           if (panelText) {
-            const fresh = newText(lastPanelText, panelText);
+            const fresh = newText(lastPanelText, panelText) || panelText;
             lastPanelText = panelText;
-            if (fresh && !isOwnDisclosure(fresh, disclosure)) {
-              const command = findKillCommand(fresh);
-              if (command && !seen.has(command + fresh.length)) {
-                seen.add(command + fresh.length);
-                log.info({ command }, 'kill requested in zoom chat');
-                emit({ kind: 'chat-message', from: 'participant', text: fresh.slice(0, 200) });
-                emit({ kind: 'kill-requested', from: 'participant' });
-              }
+            const others = stripOwnDisclosure(fresh, disclosure);
+            const command = findKillCommand(others);
+            if (command && !seen.has(command)) {
+              seen.add(command);
+              log.info({ command }, 'kill requested in zoom chat');
+              emit({ kind: 'chat-message', from: 'participant', text: others.slice(0, 200) });
+              emit({ kind: 'kill-requested', from: 'participant' });
             }
           }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   findKillCommand,
-  isOwnDisclosure,
+  stripOwnDisclosure,
   newText,
   KILL_COMMANDS,
 } from '../../agent/src/runtime/chat-commands';
@@ -81,18 +81,31 @@ describe('findKillCommand', () => {
   });
 });
 
-describe('isOwnDisclosure', () => {
-  it('recognises Hal reading its own message', () => {
-    // The disclosure contains the literal "/hal stop". Without this filter Hal
-    // reads its own announcement and leaves immediately after posting it.
-    expect(isOwnDisclosure(`Hal · AI 12:03 ${DISCLOSURE}`, DISCLOSURE)).toBe(true);
+describe('stripOwnDisclosure', () => {
+  it('removes Hal\u2019s own announcement so it cannot trigger itself', () => {
+    const out = stripOwnDisclosure(`Hal \u00b7 AI 12:03 ${DISCLOSURE}`, DISCLOSURE);
+    expect(findKillCommand(out)).toBeNull();
   });
 
-  it('does not swallow a real request that merely quotes Hal', () => {
-    expect(isOwnDisclosure('Ada 12:05 /hal stop', DISCLOSURE)).toBe(false);
+  it('keeps a real request that arrives in the same chunk as the disclosure', () => {
+    // The bug this replaces, and it cost two live meetings. The disclosure sits
+    // in the panel permanently, so rejecting any chunk containing it threw the
+    // command away with it \u2014 /hal leave was typed twice and silently swallowed.
+    const chunk = `Hal \u00b7 AI 12:03 ${DISCLOSURE} Ada 12:05 /hal leave`;
+    expect(findKillCommand(stripOwnDisclosure(chunk, DISCLOSURE))).toBe('/hal leave');
   });
 
-  it('is false when there is no disclosure to compare against', () => {
-    expect(isOwnDisclosure('anything', '')).toBe(false);
+  it('handles the disclosure being wrapped or truncated by the client', () => {
+    const chunk = `${DISCLOSURE.slice(0, 70)} \u2026 Ada /hal stop`;
+    expect(findKillCommand(stripOwnDisclosure(chunk, DISCLOSURE))).toBe('/hal stop');
+  });
+
+  it('leaves text alone when there is no disclosure to remove', () => {
+    expect(stripOwnDisclosure('Ada /hal stop', '')).toBe('Ada /hal stop');
+  });
+
+  it('does not remove an unrelated message that merely mentions Hal', () => {
+    const out = stripOwnDisclosure('Ada: hal is transcribing this meeting?', DISCLOSURE);
+    expect(out).toContain('hal is transcribing');
   });
 });
