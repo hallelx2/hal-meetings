@@ -22,6 +22,7 @@ export function GET() {
       gemini: Boolean(process.env.GEMINI_API_KEY),
       anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
       deepgram: Boolean(process.env.DEEPGRAM_API_KEY),
+      glm: Boolean(process.env.GLM_API_KEY),
       resend: Boolean(process.env.RESEND_API_KEY),
       kmsKey: Boolean(process.env.HAL_LOCAL_KMS_KEY),
     },

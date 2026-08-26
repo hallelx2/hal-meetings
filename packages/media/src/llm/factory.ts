@@ -2,9 +2,10 @@ import type { LlmProvider } from './types';
 import { OllamaLlm } from './ollama';
 import { AnthropicLlm } from './anthropic';
 import { GeminiLlm } from './gemini';
+import { GlmLlm } from './glm';
 import { ProviderNotConfiguredError } from '../errors';
 
-export type LlmProviderName = 'ollama' | 'anthropic' | 'gemini';
+export type LlmProviderName = 'ollama' | 'anthropic' | 'gemini' | 'glm';
 
 export interface LlmFactoryEnv {
   LLM_PROVIDER?: string;
@@ -17,6 +18,12 @@ export interface LlmFactoryEnv {
   // gemini
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
+  // glm (z.ai / Zhipu)
+  GLM_API_KEY?: string;
+  GLM_MODEL?: string;
+  GLM_BASE_URL?: string;
+  /** Opt in to the model's reasoning pass. Off by default — see GlmLlm. */
+  GLM_THINKING?: string;
 }
 
 export function createLlmFromEnv(env: LlmFactoryEnv = process.env as LlmFactoryEnv): LlmProvider {
@@ -41,6 +48,20 @@ export function createLlmFromEnv(env: LlmFactoryEnv = process.env as LlmFactoryE
       const model = env.GEMINI_MODEL ?? 'gemini-2.0-flash';
       if (!apiKey) throw new ProviderNotConfiguredError('gemini', 'GEMINI_API_KEY env var');
       return new GeminiLlm({ apiKey, model });
+    }
+
+    case 'glm': {
+      const apiKey = env.GLM_API_KEY;
+      if (!apiKey) throw new ProviderNotConfiguredError('glm', 'GLM_API_KEY env var');
+      // glm-4.7-flash is free and current-generation; summarising a transcript
+      // is well inside what it does. GLM_MODEL=glm-5.3 buys the flagship.
+      const model = env.GLM_MODEL ?? 'glm-4.7-flash';
+      return new GlmLlm({
+        apiKey,
+        model,
+        baseUrl: env.GLM_BASE_URL,
+        thinking: env.GLM_THINKING === 'true',
+      });
     }
 
     default:
