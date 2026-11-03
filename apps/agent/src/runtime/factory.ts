@@ -11,6 +11,8 @@ export interface RuntimeFactoryEnv {
   HAL_USER_DATA_DIR?: string;
   HAL_ADMISSION_TIMEOUT_MS?: string;
   HAL_DIAGNOSTICS_DIR?: string;
+  /** `chrome` = Google Chrome stable; unset = Playwright's bundled Chromium. */
+  HAL_BROWSER_CHANNEL?: string;
   // Zoom — the web client needs no Marketplace credentials at all.
   ZOOM_PASSCODE?: string;
   // Teams
@@ -58,6 +60,7 @@ export function createRuntime(
       const meetOpts: MeetRuntimeOptions = {
         pulseSink: env.HAL_PULSE_SINK ?? 'halsink',
         headless: headless(env),
+        channel: env.HAL_BROWSER_CHANNEL,
         userDataDir: env.HAL_USER_DATA_DIR,
         admissionTimeoutMs: admissionTimeout(env),
         diagnosticsDir: env.HAL_DIAGNOSTICS_DIR,
@@ -72,6 +75,7 @@ export function createRuntime(
       const opts: ZoomRuntimeOptions = {
         pulseSink: env.HAL_PULSE_SINK ?? 'halsink',
         headless: headless(env),
+        channel: env.HAL_BROWSER_CHANNEL,
         // Shared with Meet: one signed-in browser profile on the box is the
         // bot's identity on both platforms.
         userDataDir: env.HAL_USER_DATA_DIR,

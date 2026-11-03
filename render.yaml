@@ -3,6 +3,11 @@
 # only describes the agent worker.
 #
 # https://render.com/docs/blueprint-spec
+#
+# NOT A SUPPORTED TARGET. The bot's Chromium runs sandboxed, which needs user
+# namespaces through docker/seccomp_profile.json (see docker-compose.yml).
+# Render cannot apply a seccomp profile, so on Render every launch fails with
+# "No usable sandbox". The live host is AWS EC2 (docs/deploy-aws.md).
 
 services:
   # The long-lived bot worker. Polls Postgres jobs table, joins meetings.

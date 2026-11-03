@@ -69,7 +69,9 @@ WorkingDirectory=/opt/hal/hal-meetings
 # whatever /opt/hal/.env happened to contain at first boot, and a corrected SSM
 # parameter never reaches it.
 ExecStartPre=/opt/hal/hal-meetings/infra/aws/hal-write-env.sh
-ExecStart=/usr/bin/docker compose -f apps/agent/docker-compose.yml up -d --build
+# The ISO week busts the image's Chrome layer, so the first start each week
+# installs the current Chrome stable with its security fixes.
+ExecStart=/bin/sh -c 'HAL_CHROME_REFRESH=$$(date +%%G-W%%V) exec /usr/bin/docker compose -f apps/agent/docker-compose.yml up -d --build'
 ExecStop=/usr/bin/docker compose -f apps/agent/docker-compose.yml down
 TimeoutStartSec=0
 

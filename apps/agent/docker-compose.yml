@@ -13,6 +13,9 @@ services:
     build:
       context: ../..
       dockerfile: apps/agent/Dockerfile
+      args:
+        # Rebuilds the Chrome layer when it changes (see the Dockerfile).
+        CHROME_REFRESH: ${HAL_CHROME_REFRESH:-unset}
     image: hal-agent:local
     container_name: hal-agent
     restart: unless-stopped
@@ -66,6 +69,15 @@ services:
     # Useful for diagnosing audio routing issues.
     cap_add:
       - SYS_PTRACE
+
+    # Docker's default seccomp profile (moby/profiles seccomp/v0.3.0) plus one
+    # rule, the last entry: clone/unshare/setns without CAP_SYS_ADMIN, the user
+    # namespaces Chromium's sandbox is built on. Docker's stock profile refuses
+    # them, which is what pushed the bot onto --no-sandbox. Playwright publishes
+    # a profile for this too, but it predates current runc and crashes runc
+    # 1.5 during container init, so it is not used.
+    security_opt:
+      - seccomp=./docker/seccomp_profile.json
 
     # Logging — capped per-container. The host's docker daemon also caps via
     # /etc/docker/daemon.json (set by oracle-vm-bootstrap.sh).
