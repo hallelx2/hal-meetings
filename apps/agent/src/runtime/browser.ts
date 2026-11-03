@@ -23,8 +23,9 @@ export interface BrowserLaunchConfig {
  * twice more with `--no-sandbox` / `--disable-setuid-sandbox`. Without it, a
  * renderer exploit on any of those pages runs as the container user with the
  * Google session and every API key in the env. The image runs as an
- * unprivileged user under Playwright's seccomp profile so the sandbox can
- * start (see apps/agent/Dockerfile and docker-compose.yml).
+ * unprivileged user under docker/seccomp_profile.json (Docker's default plus
+ * user namespaces) so the sandbox can start; see docker-compose.yml for why
+ * Playwright's own profile is not used.
  *
  * One list for both launch paths: they diverged once, the persistent branch
  * quietly dropping --disable-blink-features=AutomationControlled, and a

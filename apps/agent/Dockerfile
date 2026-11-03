@@ -38,10 +38,14 @@ RUN bun install --frozen-lockfile
 
 # Install Playwright Chromium AFTER deps so it sees the resolved playwright version.
 RUN bunx playwright install --with-deps chromium
-# Google Chrome stable on amd64 (Google ships no Linux arm64 build). Each image
-# build takes the current stable, so the bot's browser carries Chrome's security
-# fixes instead of waiting for a Playwright release. The entrypoint selects it.
-RUN if [ "$(dpkg --print-architecture)" = amd64 ]; then bunx playwright install --with-deps chrome; fi
+# Google Chrome stable on amd64 (Google ships no Linux arm64 build), so the
+# bot's browser carries Chrome's security fixes instead of waiting for a
+# Playwright release. The entrypoint selects it. A cached layer would keep an old
+# Chrome forever, so CHROME_REFRESH busts this layer: compose passes the ISO week
+# (HAL_CHROME_REFRESH, set by the systemd unit), so a restart in a new week
+# reinstalls the current stable.
+ARG CHROME_REFRESH=unset
+RUN echo "chrome refresh: ${CHROME_REFRESH}" && if [ "$(dpkg --print-architecture)" = amd64 ]; then bunx playwright install --with-deps chrome; fi
 
 # Now copy source.
 COPY apps/agent apps/agent

@@ -4,8 +4,13 @@ set -euo pipefail
 # Root phase: hand the mounted volumes to the bot user, then re-exec as it.
 # Chromium only starts its sandbox as a non-root user (see the Dockerfile).
 if [ "$(id -u)" = 0 ]; then
-  for dir in /data/chrome-profile /var/lib/hal/audio /tmp/hal-audio; do
-    [ -d "$dir" ] && chown -R hal:hal "$dir"
+  # Only files not already hal's, so a large profile isn't re-walked into
+  # chown on every start. The env can move each of these dirs.
+  for dir in /data/chrome-profile /var/lib/hal/audio /tmp/hal-audio \
+    "${HAL_USER_DATA_DIR:-}" "${HAL_AUDIO_DIR:-}" "${HAL_DIAGNOSTICS_DIR:-}"; do
+    if [ -n "$dir" ] && [ -d "$dir" ]; then
+      find "$dir" \! -user hal -exec chown -h hal:hal {} +
+    fi
   done
   mkdir -p /run/user/10001 && chown hal:hal /run/user/10001 && chmod 700 /run/user/10001
   install -d -o hal -g hal /var/log/hal

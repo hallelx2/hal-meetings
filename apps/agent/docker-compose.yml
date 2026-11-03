@@ -13,6 +13,9 @@ services:
     build:
       context: ../..
       dockerfile: apps/agent/Dockerfile
+      args:
+        # Rebuilds the Chrome layer when it changes (see the Dockerfile).
+        CHROME_REFRESH: ${HAL_CHROME_REFRESH:-unset}
     image: hal-agent:local
     container_name: hal-agent
     restart: unless-stopped
