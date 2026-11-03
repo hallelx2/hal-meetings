@@ -11,7 +11,7 @@ variable "instance_name" {
 
 variable "instance_type" {
   type        = string
-  description = "amd64 so oven/bun:1.2-debian + Playwright Chromium just work."
+  description = "amd64 so oven/bun:1.3-debian + Playwright Chromium just work."
   default     = "t3.medium"
 }
 

@@ -11,7 +11,7 @@ This walkthrough takes you from "no account" to "Hal agent running 24/7 on a fre
 | Catches | Capacity is region-dependent (Frankfurt usually has it); idle instances may be reclaimed; ARM-only |
 | Card | Required for verification at signup, but Oracle **does not auto-bill** when you cross free-tier limits — they just stop services |
 
-The ARM-only requirement matters in theory but not for us: Hal's Dockerfile uses `oven/bun:1.2-debian` (multi-arch), Playwright ships ARM Chromium binaries, and every Debian package in our image has an arm64 build. No code changes.
+The ARM-only requirement matters in theory but not for us: Hal's Dockerfile uses `oven/bun:1.3-debian` (multi-arch), Playwright ships ARM Chromium binaries, and every Debian package in our image has an arm64 build. No code changes.
 
 ---
 

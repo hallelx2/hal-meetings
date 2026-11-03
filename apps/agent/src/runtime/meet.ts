@@ -2,6 +2,7 @@ import { chromium, type Browser, type Page, type BrowserContext } from 'playwrig
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
 import { captureFailure } from './diagnostics';
+import { chromiumLaunchOptions } from './browser';
 import { findKillCommand, stripOwnDisclosure, newText } from './chat-commands';
 
 /**
@@ -117,6 +118,8 @@ export interface MeetRuntimeOptions {
   userDataDir?: string;
   /** Slow-mo for debug (milliseconds between actions). 0 in prod. */
   slowMoMs?: number;
+  /** Playwright browser channel (`chrome` for Google Chrome). See BrowserLaunchConfig. */
+  channel?: string;
   /** How long to wait for admission before giving up. Default 90s. */
   admissionTimeoutMs?: number;
   /** Where to drop a screenshot when a join fails. Optional — the element
@@ -154,20 +157,7 @@ export class MeetRuntime implements BotRuntime {
     };
     emit({ kind: 'joining' });
 
-    // One arg list for both launch paths. They diverged once — the persistent
-    // branch quietly dropped --disable-blink-features=AutomationControlled —
-    // and a signed-in Chromium advertising itself as automated is exactly the
-    // client Google stalls, which surfaced as goto() timing out on a page that
-    // loads fine by hand.
-    const args = [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-blink-features=AutomationControlled',
-      '--use-fake-ui-for-media-stream', // auto-accept mic/cam prompts
-      '--autoplay-policy=no-user-gesture-required',
-      // Pin audio output to the PulseAudio sink we'll capture from.
-      `--alsa-output-device=${this.opts.pulseSink}`,
-    ];
+    const launch = chromiumLaunchOptions(this.opts);
     const userAgent =
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
@@ -179,20 +169,14 @@ export class MeetRuntime implements BotRuntime {
       // browser first and immediately closed it, which bought nothing and cost
       // a browser start on every join.
       context = await chromium.launchPersistentContext(this.opts.userDataDir, {
-        headless: this.opts.headless ?? true,
-        slowMo: this.opts.slowMoMs ?? 0,
-        args,
+        ...launch,
         permissions: ['microphone', 'camera'],
         userAgent,
         viewport: { width: 1280, height: 800 },
       });
       log.info({ userDataDir: this.opts.userDataDir }, 'using persistent Meet profile');
     } else {
-      browser = await chromium.launch({
-        headless: this.opts.headless ?? true,
-        slowMo: this.opts.slowMoMs ?? 0,
-        args,
-      });
+      browser = await chromium.launch(launch);
       context = await browser.newContext({
         permissions: ['microphone', 'camera'],
         userAgent,

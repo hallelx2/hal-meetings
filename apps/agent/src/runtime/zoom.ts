@@ -3,6 +3,7 @@ import { parseZoomUrl } from '@hal/meeting-links';
 import type { BotRuntime, JoinOptions, JoinSession, RuntimeEvent } from './types';
 import type { Logger } from '../logger';
 import { captureFailure } from './diagnostics';
+import { chromiumLaunchOptions } from './browser';
 import { findKillCommand, stripOwnDisclosure, newText } from './chat-commands';
 
 export interface ZoomRuntimeOptions {
@@ -22,6 +23,8 @@ export interface ZoomRuntimeOptions {
    * profile is the mechanism, not a workaround for one.
    */
   userDataDir?: string;
+  /** Playwright browser channel (`chrome` for Google Chrome). See BrowserLaunchConfig. */
+  channel?: string;
   /** How long to wait for admission before giving up. Default 120s. */
   admissionTimeoutMs?: number;
   /** Where to drop a screenshot when a join fails. See MeetRuntimeOptions. */
@@ -75,14 +78,7 @@ export class ZoomRuntime implements BotRuntime {
       throw new Error(`[@hal/agent zoom] not a Zoom meeting link: ${joinOpts.meetingUrl}`);
     }
 
-    const launchArgs = [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-blink-features=AutomationControlled',
-      '--use-fake-ui-for-media-stream',
-      '--autoplay-policy=no-user-gesture-required',
-      `--alsa-output-device=${this.opts.pulseSink}`,
-    ];
+    const launch = chromiumLaunchOptions(this.opts);
     const userAgent =
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
@@ -93,20 +89,14 @@ export class ZoomRuntime implements BotRuntime {
       // A persistent context *is* the browser — there is no separate instance
       // to close, which is why cleanup has to tolerate `browser()` being null.
       context = await chromium.launchPersistentContext(this.opts.userDataDir, {
-        headless: this.opts.headless ?? true,
-        slowMo: this.opts.slowMoMs ?? 0,
-        args: launchArgs,
+        ...launch,
         permissions: ['microphone', 'camera'],
         userAgent,
         viewport: { width: 1280, height: 800 },
       });
       log.info({ userDataDir: this.opts.userDataDir }, 'using persistent Zoom profile');
     } else {
-      browser = await chromium.launch({
-        headless: this.opts.headless ?? true,
-        slowMo: this.opts.slowMoMs ?? 0,
-        args: launchArgs,
-      });
+      browser = await chromium.launch(launch);
       context = await browser.newContext({
         permissions: ['microphone', 'camera'],
         userAgent,
